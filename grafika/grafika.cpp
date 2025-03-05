@@ -19,6 +19,7 @@
 /// 3. Ne essen a (-1, -1);(1, 1) négyzetbe az egyenes két pontja
 /// P1(x1,y1) legyen a négyzet bal oldalán; P2(x2,y2) legyen a négyzet jobb oldalán
 /// jó ha !(1 > x1 > -1 és 1 > y1 > -1 és 1 > x2 > -2 és 1 > y2 > -1)
+/// vagyis |x| > 1 && |y| > 1
 /// ======
 /// 4. Pont és egyenes távolsága
 /// implicit egyenlettel:		d = |A * x0 + B * y0 + C| / sqrt(A^2 + B^2)

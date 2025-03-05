@@ -21,6 +21,9 @@
     <ClCompile Include="..\sources\glad.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="triangles.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="grafika.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

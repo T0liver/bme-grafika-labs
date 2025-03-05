@@ -64,6 +64,52 @@ const int pointSize = 10, lineSize = 3;
 
 GPUProgram* gpuProgram;
 
+class Object {
+	unsigned int vao, vbo;
+	std::vector<vec2> vtxs;
+public:
+	Object() : vao(0), vbo(0) {
+		glGenVertexArrays(1, &vao);
+		glBindVertexArray(vao);
+
+		glGenBuffers(1, &vbo);
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+		glEnableVertexAttribArray(0);
+	}
+
+	void setVtxs(const std::vector<vec2> verticles) {
+		vtxs = verticles;
+	}
+
+	void update() {
+		glBindVertexArray(vao);
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		glBufferData(GL_ARRAY_BUFFER, vtxs.size() * sizeof(vec2), &vtxs[0], GL_DYNAMIC_DRAW);
+	}
+
+	void draw(GLenum type, vec3 col) {
+		if (vtxs.size() > 0)
+		{
+			// drawwwwww
+			glBindVertexArray(vao);
+			gpuProgram->setUniform(col, "color");
+			glDrawArrays(type, 0, vtxs.size());
+		}
+	}
+
+	std::vector<vec2>& getVtxs() {
+		return vtxs;
+	}
+
+	~Object() {
+		glDeleteBuffers(1, &vbo);
+		glDeleteVertexArrays(1, &vao);
+	}
+
+
+};
 
 class PointsAndLines : public glApp {
 public:

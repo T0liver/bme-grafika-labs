@@ -64,6 +64,14 @@ const int pointSize = 10, lineSize = 3;
 
 GPUProgram* gpuProgram;
 
+// Segédfüggvények
+float pointDistance(const vec2 p1, const vec2 p2) {
+	float ret;
+	ret = sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2));
+	return ret;
+}
+
+// Osztályok
 class Object {
 	unsigned int vao, vbo;
 	std::vector<vec2> vtxs;
@@ -89,7 +97,7 @@ public:
 		glBufferData(GL_ARRAY_BUFFER, vtxs.size() * sizeof(vec2), &vtxs[0], GL_DYNAMIC_DRAW);
 	}
 
-	void draw(GLenum type, vec3 col) {
+	void Draw(GLenum type, vec3 col) {
 		if (vtxs.size() > 0)
 		{
 			// drawwwwww
@@ -109,6 +117,36 @@ public:
 	}
 
 
+};
+
+
+
+class PointCollection : public Object {
+public:
+	PointCollection() : Object() {}
+
+	void addPoint(const vec2 point) {
+		this->getVtxs().push_back(point);
+		printf("Point added: %f, %f", point.x, point.y);
+	}
+
+	vec2 findNearest(const vec2 p) {
+		vec2 nearest{};
+		float min = 10000;
+
+		for (size_t i = 0; i < this->getVtxs().size(); ++i) {
+			if (pointDistance(p, this->getVtxs()[i]) < min)
+			{
+				nearest = this->getVtxs()[i];
+			}
+		}
+
+		return nearest;
+	}
+
+	void Draw(vec3 color) {
+		Object::Draw(GL_POINTS, color);
+	}
 };
 
 class PointsAndLines : public glApp {

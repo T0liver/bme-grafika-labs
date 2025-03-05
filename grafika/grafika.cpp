@@ -62,38 +62,22 @@ const int winWidth = 600, winHeight = 600;
 const int pointSize = 10, lineSize = 3;
 
 
-class Object {
-public:
-	virtual void Draw(GPUProgram* gpuProgram, GLenum mode, const vec3& color) = 0;
-};
+GPUProgram* gpuProgram;
 
-class GreenTriangleApp : public glApp {
-	Geometry<vec2>* triangle;  // geometria
-	Geometry<vec2>* triangle2;  // geometria
-	GPUProgram* gpuProgram;	   // csúcspont és pixel árnyalók
-public:
-	GreenTriangleApp() : glApp("Triangles") {}
 
-	// Inicializáció, 
+class PointsAndLines : public glApp {
+public:
+	PointsAndLines() : glApp("Points and lines") {}
+
+	// Inicializacio
 	void onInitialization() {
-		triangle = new Geometry<vec2>;
-		triangle->Vtx() = { vec2(-0.8f, -0.1f), vec2(-0.6f, 0.5f), vec2(0.8f, -0.2f) };
-		triangle2 = new Geometry<vec2>;
-		triangle2->Vtx() = { vec2(-0.8f, -0.2f), vec2(-0.6f, -0.8f), vec2(0.8f, -0.3f) };
-		triangle->updateGPU();
-		triangle2->updateGPU();
-		gpuProgram = new GPUProgram(vertSource, fragSource);
+		
 	}
 
-	// Ablak újrarajzolás
+	// Ablak ujrarajzolas
 	void onDisplay() {
-		glClearColor(0, 0, 0, 0);     // háttér szín
-		glClear(GL_COLOR_BUFFER_BIT); // rasztertár törlés
-		glViewport(0, 0, winWidth, winHeight);
-		triangle->Draw(gpuProgram, GL_TRIANGLES, vec3(0.0f, 1.0f, 1.0f));
-		triangle2->Draw(gpuProgram, GL_TRIANGLES, vec3(0.0f, 1.0f, 1.0f));
+		
 	}
 };
 
-GreenTriangleApp app;
-
+PointsAndLines app;

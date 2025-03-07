@@ -62,6 +62,14 @@ const int winWidth = 600, winHeight = 600;
 
 const int pointSize = 10, lineSize = 3;
 
+enum Mode
+{
+	POINT,
+	LINE,
+	MOVE,
+	INTERSECT
+	
+};
 
 GPUProgram* gpuProgram;
 
@@ -69,6 +77,23 @@ GPUProgram* gpuProgram;
 float pointDistance(const vec2 p1, const vec2 p2) {
 	float ret;
 	ret = sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2));
+	return ret;
+}
+
+bool vecEq(const vec2& lhs, const vec2& rhs) {
+	if (fabs(lhs.x - rhs.x) <= 0.01f)
+	{
+		if (fabs(lhs.y == rhs.y) <= 0.01f) {
+			return true;
+		}
+	}
+	return false;
+}
+
+float pointDistToLine(const vec2 point, const Line& line) {
+	float ret;
+	ret = fabs(line.a * point.x + line.b * point.y + line.c)
+    / sqrt(line.a * line.a + line.b * line.b);
 	return ret;
 }
 
@@ -152,9 +177,13 @@ public:
 
 class Line : public Object {
 	vec2 p1, p2;
+public:
+
 	float a, b, c; // Ax + By + C = 0
 
-public:
+	Line() : p1(vec2(0, 0)), p2(vec2(0, 0)) {}
+
+
 	Line(const vec2 p1, const vec2 p2) : Object(), p1(p1), p2(p2) {
 		a = p1.y - p2.y;
 		b = p2.x - p1.x;
@@ -180,7 +209,9 @@ public:
 		return dist < 0.01;
 	}
 
-	void clipToBox(vec2 start, vec2 end) {
+	void clipToBox() {
+
+		vec2 start, end;
 
 		/// minX, maxY      maxX, maxY
 		///		 +-----------+
@@ -230,6 +261,9 @@ public:
 			end = top;
 		}
 
+		p1 = start;
+		p2 = end;
+
 	}
 
 	void translateLine(const vec2& p) {
@@ -246,14 +280,106 @@ public:
 	}
 };
 
+class LineCollection : public Object {
+public:
+	LineCollection() : Object() {}
+
+	void addLine(vec2 p1, vec2 p2) {
+		Line line = Line(p1, p2);
+		line.clipToBox();
+		this->getVtxs().push_back(p1);
+		this->getVtxs().push_back(p2);
+		update();
+	}
+
+	Line& findNearest(vec2 point) {
+		vec2 pt1, pt2;
+		float mindist = 1000;
+		Line* nearest = nullptr;
+
+		for (size_t i = 0; i < this->getVtxs().size(); i++)
+		{
+			pt1 = this->getVtxs()[i];
+			pt2 = this->getVtxs()[i + 1];
+
+			Line* l = &Line(pt1, pt2);
+
+			float dist = pointDistToLine(point, l);
+
+			if (dist < mindist)
+			{
+				mindist = dist;
+				nearest = l;
+			}
+		}
+
+		return &nearest;
+
+	}
+
+	void Draw(vec3 color) {
+		Object::Draw(GL_LINES, color);
+	}
+};
+
 
 class PointsAndLines : public glApp {
+	Mode mode = POINT;
+
+	PointCollection* points;
 public:
 	PointsAndLines() : glApp("Points and lines") {}
 
 	// Inicializacio
 	void onInitialization() {
+		points = new PointCollection();
 
+	}
+
+	// Billenytuzet
+	void onKeyboard(unsigned char key, int pX, int pY) {
+		switch (key)
+		{
+			case 'p':
+				mode = POINT;
+				printf("Mode: POINT\n");
+				break;
+			case 'l':
+				mode = LINE;
+				printf("Mode: LINE\n");
+				break;
+			case 'm':
+				mode = MOVE;
+				printf("Mode: MOVE\n");
+				break;
+			case 'i':
+				mode = INTERSECT;
+				printf("Mode: INTERSECT\n");
+				break;
+		}
+	}
+
+	void onMouse(int btn, int state, int pX, int pY) {
+		float nX = 2.0f * pX / winWidth - 1;
+		float nY = 1 - 2.0f * pY / winHeight;
+
+		if (state == KEY_DOWN && btn == MOUSE_LEFT)
+		{
+			switch (mode)
+			{
+			case POINT:
+				points->addPoint(vec2(nX, nY));
+				break;
+			case LINE:
+				break;
+			case MOVE:
+				break;
+			case INTERSECT:
+				break;
+			default:
+				break;
+			}
+		}
 	}
 
 	// Ablak ujrarajzolas

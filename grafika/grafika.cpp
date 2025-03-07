@@ -83,7 +83,9 @@ bool vecEq(const vec3 lhs, const vec3& rhs) {
 	if (fabs(lhs.x - rhs.x) <= 0.01f)
 	{
 		if (fabs(lhs.y == rhs.y) <= 0.01f) {
-			return true;
+			if (fabs(lhs.z == rhs.z) <= 0.01f) {
+				return true;
+			}
 		}
 	}
 	return false;
@@ -190,7 +192,7 @@ public:
 		float det = this->a * l2.b - l2.a * this->b;
 		if (fabs(det) < 1e-6)
 		{
-			throw "Lines are parallel!";
+			return vec3(-2.0f, -2.0f, -2.0f);
 		}
 		float mx = (this->b * this->c - l2.b * this->c) / det;
 		float my = (l2.a * this->c -this->a * l2.c) / det;
@@ -218,18 +220,10 @@ public:
 
 		float minX = -1.0f, maxX = 1.0f, minY = -1.0f, maxY = 1.0f;
 		
-		vec3 left;
-		try { left = getIntersect(Line(vec3(minX, minY, 0), vec3(minX, maxY, 0))); }
-		catch (const std::exception&) { left = vec3(-2.0f -2.0f); }
-		vec3 right;
-		try { right = getIntersect(Line(vec3(maxX, minY, 0), vec3(maxX, maxY, 0))); }
-		catch (const std::exception&) { right = vec3(-2.0f - 2.0f); }
-		vec3 top;
-		try { top = getIntersect(Line(vec3(minX, maxY, 0), vec3(maxX, maxY, 0))); }
-		catch (const std::exception&) { top = vec3(-2.0f - 2.0f); }
-		vec3 bottom;
-		try { bottom = getIntersect(Line(vec3(minX, maxY, 0), vec3(maxX, maxY, 0))); }
-		catch (const std::exception&) { bottom = vec3(-2.0f - 2.0f); }
+		vec3 left	= getIntersect(Line(vec3(minX, minY, 0), vec3(minX, maxY, 0)));
+		vec3 right	= getIntersect(Line(vec3(maxX, minY, 0), vec3(maxX, maxY, 0)));
+		vec3 top	= getIntersect(Line(vec3(minX, maxY, 0), vec3(maxX, maxY, 0)));
+		vec3 bottom	= getIntersect(Line(vec3(minX, maxY, 0), vec3(maxX, maxY, 0)));
 
 		if (fabs(left.y) <= 1)
 		{
@@ -243,7 +237,7 @@ public:
 			start = bottom;
 		}
 
-		if (fabs(bottom.x) <= 1 && equal(start, bottom).y)
+		if (fabs(bottom.x) <= 1 && !vecEq(start, bottom))
 		{
 			end = bottom;
 		}

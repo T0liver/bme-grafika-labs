@@ -6,7 +6,7 @@
 ///===========
 /// 1. Egyenletek
 /// 2D egyenes implicit (normálvektoros) egyenlete: Ax + By + C = 0
-/// 2D egyenes paraméteres egyenletei: x = x0 + t * dx	;	y = y0 + t * dy
+/// 2D egyenes paraméteres egyenletei: x = x0 + t * dx	;	y = y0 + t * dy vagy r(t) = r0 + t * v
 /// paraméteres egyenlet paraméterei => implicit: A = dy, B = -dx, C = - (Ax0 + By0) = dx * y0 - dy * x0
 /// implicit egyenlet => paraméteres: (dx, dy) = (B, -A), (x0, y0) = 
 /// egyenlet két pontból: P1(x1, y1); P2(x2, y2);	A = y1 - y2, B = x2 - x1, C = y2 * x1 - y1 * x2
@@ -128,7 +128,7 @@ public:
 
 	void addPoint(const vec2 point) {
 		this->getVtxs().push_back(point);
-		printf("Point added: %f, %f", point.x, point.y);
+		printf("=========\nPoint added: %f, %f\n", point.x, point.y);
 	}
 
 	vec2 findNearest(const vec2 p) {
@@ -150,18 +150,115 @@ public:
 	}
 };
 
+class Line : public Object {
+	vec2 p1, p2;
+	float a, b, c; // Ax + By + C = 0
+
+public:
+	Line(const vec2 p1, const vec2 p2) : Object(), p1(p1), p2(p2) {
+		a = p1.y - p2.y;
+		b = p2.x - p1.x;
+		c = p2.y * p1.x - p1.y * p2.x;
+		printf("=========\nLine added\n");
+		printf("Implicit: %fx + %fy + %f = 0\n", a, b, c);
+		printf("Parametric: r(t) = (%f, %f) + t * (%f, %f)\n", p1.x, p2.y, p2.x - p1.x, p2.y - p1.y);
+	}
+
+	vec2 getIntersect(const Line& l2) {
+		float det = this->a * l2.b - l2.a * this->b;
+		if (fabs(det) < 1e-6)
+		{
+			throw "Lines are parallel!";
+		}
+		float mx = (this->b * this->c - l2.b * this->c) / det;
+		float my = (l2.a * this->c -this->a * l2.c) / det;
+		return vec2(mx, my);
+	}
+
+	bool isPointOnLine(const vec2 p) {
+		float dist = abs(a * p.x + b * p.y + c) / sqrt(a * a + b * b);
+		return dist < 0.01;
+	}
+
+	void clipToBox(vec2 start, vec2 end) {
+
+		/// minX, maxY      maxX, maxY
+		///		 +-----------+
+		///		 |start      |
+		///	     |           |
+		///		 |           |
+		///		 |        end|
+		///		 +-----------+
+		///  minX, minY      maxX, minY
+		/// 
+
+		float minX = -1.0f, maxX = 1.0f, minY = -1.0f, maxY = 1.0f;
+		
+		vec2 left;
+		try { left = getIntersect(Line(vec2(minX, minY), vec2(minX, maxY))); }
+		catch (const std::exception&) { left = vec2(-2.0f -2.0f); }
+		vec2 right;
+		try { right = getIntersect(Line(vec2(maxX, minY), vec2(maxX, maxY))); }
+		catch (const std::exception&) { right = vec2(-2.0f - 2.0f); }
+		vec2 top;
+		try { top = getIntersect(Line(vec2(minX, maxY), vec2(maxX, maxY))); }
+		catch (const std::exception&) { top = vec2(-2.0f - 2.0f); }
+		vec2 bottom;
+		try { bottom = getIntersect(Line(vec2(minX, maxY), vec2(maxX, maxY))); }
+		catch (const std::exception&) { bottom = vec2(-2.0f - 2.0f); }
+
+		if (fabs(left.y) <= 1)
+		{
+			start = left;
+		}
+		else if (fabs(top.x) <= 1)
+		{
+			start = top;
+		}
+		else {
+			start = bottom;
+		}
+
+		if (fabs(bottom.x) <= 1 && equal(start, bottom).y)
+		{
+			end = bottom;
+		}
+		else if (fabs(right.y) <= 1) {
+			end = right;
+		}
+		else {
+			end = top;
+		}
+
+	}
+
+	void translateLine(const vec2& p) {
+		vec2 trans = vec2(p.x - p1.x, p.y - p1.y);
+
+		p1.x += trans.x;
+		p1.y += trans.y;
+		p2.x += trans.x;
+		p2.y += trans.y;
+
+		a = p1.y - p2.y;
+		b = p2.x - p1.x;
+		c = p2.y * p1.x - p1.y * p2.x;
+	}
+};
+
+
 class PointsAndLines : public glApp {
 public:
 	PointsAndLines() : glApp("Points and lines") {}
 
 	// Inicializacio
 	void onInitialization() {
-		
+
 	}
 
 	// Ablak ujrarajzolas
 	void onDisplay() {
-		
+
 	}
 };
 

@@ -73,13 +73,13 @@ enum Mode
 GPUProgram* gpuProgram;
 
 // Segédfüggvények
-float pointDistance(const vec2 p1, const vec2 p2) {
+float pointDistance(const vec3 p1, const vec3 p2) {
 	float ret;
 	ret = sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2));
 	return ret;
 }
 
-bool vecEq(const vec2& lhs, const vec2& rhs) {
+bool vecEq(const vec3 lhs, const vec3& rhs) {
 	if (fabs(lhs.x - rhs.x) <= 0.01f)
 	{
 		if (fabs(lhs.y == rhs.y) <= 0.01f) {
@@ -92,7 +92,7 @@ bool vecEq(const vec2& lhs, const vec2& rhs) {
 // Osztályok
 class Object {
 	unsigned int vao, vbo;
-	std::vector<vec2> vtxs;
+	std::vector<vec3> vtxs;
 public:
 	Object() : vao(0), vbo(0) {
 		glGenVertexArrays(1, &vao);
@@ -105,7 +105,7 @@ public:
 		glEnableVertexAttribArray(0);
 	}
 
-	void setVtxs(const std::vector<vec2> verticles) {
+	void setVtxs(const std::vector<vec3> verticles) {
 		vtxs = verticles;
 	}
 
@@ -125,7 +125,7 @@ public:
 		}
 	}
 
-	std::vector<vec2>& getVtxs() {
+	std::vector<vec3>& getVtxs() {
 		return vtxs;
 	}
 
@@ -143,13 +143,13 @@ class PointCollection : public Object {
 public:
 	PointCollection() : Object() {}
 
-	void addPoint(const vec2 point) {
+	void addPoint(const vec3 point) {
 		this->getVtxs().push_back(point);
 		printf("=========\nPoint added: %f, %f\n", point.x, point.y);
 		update();
 	}
 
-	vec2 findNearest(const vec2 p) {
+	vec2 findNearest(const vec3 p) {
 		vec2 nearest{};
 		float min = 10000;
 
@@ -169,15 +169,15 @@ public:
 };
 
 class Line : public Object {
-	vec2 p1, p2;
+	vec3 p1, p2;
 public:
 
 	float a, b, c; // Ax + By + C = 0
 
-	Line() : p1(vec2(0, 0)), p2(vec2(0, 0)) {}
+	Line() : p1(vec3(0, 0, -1)), p2(vec3(0, 0, -1)) {}
 
 
-	Line(const vec2 p1, const vec2 p2) : Object(), p1(p1), p2(p2) {
+	Line(const vec3 p1, const vec3 p2) : Object(), p1(p1), p2(p2) {
 		a = p1.y - p2.y;
 		b = p2.x - p1.x;
 		c = p2.y * p1.x - p1.y * p2.x;
@@ -186,7 +186,7 @@ public:
 		printf("Parametric: r(t) = (%f, %f) + t * (%f, %f)\n", p1.x, p2.y, p2.x - p1.x, p2.y - p1.y);
 	}
 
-	vec2 getIntersect(const Line& l2) {
+	vec3 getIntersect(const Line& l2) {
 		float det = this->a * l2.b - l2.a * this->b;
 		if (fabs(det) < 1e-6)
 		{
@@ -194,17 +194,17 @@ public:
 		}
 		float mx = (this->b * this->c - l2.b * this->c) / det;
 		float my = (l2.a * this->c -this->a * l2.c) / det;
-		return vec2(mx, my);
+		return vec3(mx, my, 0);
 	}
 
-	bool isPointOnLine(const vec2 p) {
+	bool isPointOnLine(const vec3 p) {
 		float dist = abs(a * p.x + b * p.y + c) / sqrt(a * a + b * b);
 		return dist < 0.01;
 	}
 
 	void clipToBox() {
 
-		vec2 start, end;
+		vec3 start, end;
 
 		/// minX, maxY      maxX, maxY
 		///		 +-----------+
@@ -218,18 +218,18 @@ public:
 
 		float minX = -1.0f, maxX = 1.0f, minY = -1.0f, maxY = 1.0f;
 		
-		vec2 left;
-		try { left = getIntersect(Line(vec2(minX, minY), vec2(minX, maxY))); }
-		catch (const std::exception&) { left = vec2(-2.0f -2.0f); }
-		vec2 right;
-		try { right = getIntersect(Line(vec2(maxX, minY), vec2(maxX, maxY))); }
-		catch (const std::exception&) { right = vec2(-2.0f - 2.0f); }
-		vec2 top;
-		try { top = getIntersect(Line(vec2(minX, maxY), vec2(maxX, maxY))); }
-		catch (const std::exception&) { top = vec2(-2.0f - 2.0f); }
-		vec2 bottom;
-		try { bottom = getIntersect(Line(vec2(minX, maxY), vec2(maxX, maxY))); }
-		catch (const std::exception&) { bottom = vec2(-2.0f - 2.0f); }
+		vec3 left;
+		try { left = getIntersect(Line(vec3(minX, minY, 0), vec3(minX, maxY, 0))); }
+		catch (const std::exception&) { left = vec3(-2.0f -2.0f); }
+		vec3 right;
+		try { right = getIntersect(Line(vec3(maxX, minY, 0), vec3(maxX, maxY, 0))); }
+		catch (const std::exception&) { right = vec3(-2.0f - 2.0f); }
+		vec3 top;
+		try { top = getIntersect(Line(vec3(minX, maxY, 0), vec3(maxX, maxY, 0))); }
+		catch (const std::exception&) { top = vec3(-2.0f - 2.0f); }
+		vec3 bottom;
+		try { bottom = getIntersect(Line(vec3(minX, maxY, 0), vec3(maxX, maxY, 0))); }
+		catch (const std::exception&) { bottom = vec3(-2.0f - 2.0f); }
 
 		if (fabs(left.y) <= 1)
 		{
@@ -259,8 +259,8 @@ public:
 
 	}
 
-	void translateLine(const vec2& p) {
-		vec2 trans = vec2(p.x - p1.x, p.y - p1.y);
+	void translateLine(const vec3& p) {
+		vec3 trans = vec3(p.x - p1.x, p.y - p1.y, 0);
 
 		p1.x += trans.x;
 		p1.y += trans.y;
@@ -274,7 +274,7 @@ public:
 };
 
 /// Random segedfuggveny, ami csak itt fog mukodni
-float pointDistToLine(const vec2 point, const Line& line) {
+float pointDistToLine(const vec3 point, const Line& line) {
 	float ret;
 	ret = fabs(line.a * point.x + line.b * point.y + line.c)
 		/ sqrt(line.a * line.a + line.b * line.b);
@@ -285,7 +285,7 @@ class LineCollection : public Object {
 public:
 	LineCollection() : Object() {}
 
-	void addLine(vec2 p1, vec2 p2) {
+	void addLine(vec3 p1, vec3 p2) {
 		Line line = Line(p1, p2);
 		line.clipToBox();
 		this->getVtxs().push_back(p1);
@@ -293,12 +293,12 @@ public:
 		update();
 	}
 
-	Line* findNearest(vec2 point) {
-		vec2 pt1, pt2;
+	Line* findNearest(vec3 point) {
+		vec3 pt1, pt2;
 		float mindist = 1000;
 		Line* nearest = nullptr;
 
-		for (size_t i = 0; i < this->getVtxs().size(); i++)
+		for (size_t i = 0; i < this->getVtxs().size(); i = i+2)
 		{
 			pt1 = this->getVtxs()[i];
 			pt2 = this->getVtxs()[i + 1];
@@ -339,8 +339,6 @@ public:
 		points = new PointCollection();
 		lines = new LineCollection();
 
-		points->addPoint(vec2(0.5f, 0.5f));
-
 		glPointSize(pointSize);
 		glLineWidth(lineSize);
 
@@ -379,7 +377,7 @@ public:
 			switch (mode)
 			{
 			case POINT:
-				points->addPoint(vec2(nX, nY));
+				points->addPoint(vec3(nX, nY, 0));
 				points->update();
 				refreshScreen();
 				break;

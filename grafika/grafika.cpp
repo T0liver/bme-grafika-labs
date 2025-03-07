@@ -2,7 +2,6 @@
 // Grafika 1. házifeladat.
 //=============================================================================================
 #include "framework.h"
-
 ///===========
 /// 1. Egyenletek
 /// 2D egyenes implicit (normálvektoros) egyenlete: Ax + By + C = 0
@@ -90,13 +89,6 @@ bool vecEq(const vec2& lhs, const vec2& rhs) {
 	return false;
 }
 
-float pointDistToLine(const vec2 point, const Line& line) {
-	float ret;
-	ret = fabs(line.a * point.x + line.b * point.y + line.c)
-    / sqrt(line.a * line.a + line.b * line.b);
-	return ret;
-}
-
 // Osztályok
 class Object {
 	unsigned int vao, vbo;
@@ -154,6 +146,7 @@ public:
 	void addPoint(const vec2 point) {
 		this->getVtxs().push_back(point);
 		printf("=========\nPoint added: %f, %f\n", point.x, point.y);
+		update();
 	}
 
 	vec2 findNearest(const vec2 p) {
@@ -280,6 +273,14 @@ public:
 	}
 };
 
+/// Random segedfuggveny, ami csak itt fog mukodni
+float pointDistToLine(const vec2 point, const Line& line) {
+	float ret;
+	ret = fabs(line.a * point.x + line.b * point.y + line.c)
+		/ sqrt(line.a * line.a + line.b * line.b);
+	return ret;
+}
+
 class LineCollection : public Object {
 public:
 	LineCollection() : Object() {}
@@ -292,7 +293,7 @@ public:
 		update();
 	}
 
-	Line& findNearest(vec2 point) {
+	Line* findNearest(vec2 point) {
 		vec2 pt1, pt2;
 		float mindist = 1000;
 		Line* nearest = nullptr;
@@ -302,18 +303,18 @@ public:
 			pt1 = this->getVtxs()[i];
 			pt2 = this->getVtxs()[i + 1];
 
-			Line* l = &Line(pt1, pt2);
+			Line l = Line(pt1, pt2);
 
 			float dist = pointDistToLine(point, l);
 
 			if (dist < mindist)
 			{
 				mindist = dist;
-				nearest = l;
+				nearest = &l;
 			}
 		}
 
-		return &nearest;
+		return nearest;
 
 	}
 
@@ -327,48 +328,60 @@ class PointsAndLines : public glApp {
 	Mode mode = POINT;
 
 	PointCollection* points;
+	LineCollection* lines;
 public:
 	PointsAndLines() : glApp("Points and lines") {}
 
 	// Inicializacio
 	void onInitialization() {
-		points = new PointCollection();
+		glViewport(0, 0, winWidth, winHeight);
 
+		points = new PointCollection();
+		lines = new LineCollection();
+
+		points->addPoint(vec2(0.5f, 0.5f));
+
+		glPointSize(pointSize);
+		glLineWidth(lineSize);
+
+		gpuProgram = new GPUProgram(vertSource, fragSource);
 	}
 
 	// Billenytuzet
-	void onKeyboard(unsigned char key, int pX, int pY) {
+	void onKeyboard(int key) {
 		switch (key)
 		{
 			case 'p':
 				mode = POINT;
-				printf("Mode: POINT\n");
+				printf("== Mode: POINT\n");
 				break;
 			case 'l':
 				mode = LINE;
-				printf("Mode: LINE\n");
+				printf("== Mode: LINE\n");
 				break;
 			case 'm':
 				mode = MOVE;
-				printf("Mode: MOVE\n");
+				printf("== Mode: MOVE\n");
 				break;
 			case 'i':
 				mode = INTERSECT;
-				printf("Mode: INTERSECT\n");
+				printf("== Mode: INTERSECT\n");
 				break;
 		}
 	}
 
-	void onMouse(int btn, int state, int pX, int pY) {
+	void onMousePressed(MouseButton btn, int pX, int pY) {
 		float nX = 2.0f * pX / winWidth - 1;
 		float nY = 1 - 2.0f * pY / winHeight;
 
-		if (state == KEY_DOWN && btn == MOUSE_LEFT)
+		if (btn == MOUSE_LEFT)
 		{
 			switch (mode)
 			{
 			case POINT:
 				points->addPoint(vec2(nX, nY));
+				points->update();
+				refreshScreen();
 				break;
 			case LINE:
 				break;
@@ -384,7 +397,12 @@ public:
 
 	// Ablak ujrarajzolas
 	void onDisplay() {
+		glClearColor(0.0f, 0.0f, 0.0f, 1);
+		glClear(GL_COLOR_BUFFER_BIT);
+		glViewport(0, 0, winWidth, winHeight);
 
+		points->Draw(vec3(1.0f, 0.0f, 0.0f));
+		lines->Draw(vec3(0.0f, 1.0f, 1.0f));
 	}
 };
 

@@ -40,7 +40,7 @@ const char* vertSource = R"(
 	layout(location = 0) in vec2 cP;	// 0. bemeneti regiszter
 
 	void main() {
-		gl_Position = vec4(cP.x, cP.y, 0, 1); 	// bemenet már normalizált eszközkoordinátákban
+		gl_Position = vec4(cP.x, cP.y, 0, 1);
 	}
 )";
 
@@ -75,15 +75,17 @@ GPUProgram* gpuProgram;
 // Segédfüggvények
 float pointDistance(const vec3 p1, const vec3 p2) {
 	float ret;
-	ret = sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2));
+	ret = sqrtf(powf(p1.x - p2.x, 2) + powf(p1.y - p2.y, 2));
 	return ret;
 }
 
 bool vecEq(const vec3 lhs, const vec3& rhs) {
 	if (fabs(lhs.x - rhs.x) <= 0.01f)
 	{
-		if (fabs(lhs.y == rhs.y) <= 0.01f) {
-			if (fabs(lhs.z == rhs.z) <= 0.01f) {
+		if (fabs(lhs.y - rhs.y) <= 0.01f)
+		{
+			if (fabs(lhs.z - rhs.z) <= 0.01f)
+			{
 				return true;
 			}
 		}
@@ -93,8 +95,9 @@ bool vecEq(const vec3 lhs, const vec3& rhs) {
 
 // Osztályok
 class Object {
+protected:
 	unsigned int vao, vbo;
-	std::vector<vec3> vtxs;
+	std::vector<vec3> vtx;
 public:
 	Object() : vao(0), vbo(0) {
 		glGenVertexArrays(1, &vao);
@@ -103,32 +106,32 @@ public:
 		glGenBuffers(1, &vbo);
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
-		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 		glEnableVertexAttribArray(0);
 	}
 
 	void setVtxs(const std::vector<vec3> verticles) {
-		vtxs = verticles;
+		vtx = verticles;
 	}
 
 	void update() {
 		glBindVertexArray(vao);
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, vtxs.size() * sizeof(vec2), &vtxs[0], GL_DYNAMIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, vtx.size() * sizeof(vec3), &vtx[0], GL_DYNAMIC_DRAW);
 	}
 
 	void Draw(GLenum type, vec3 col) {
-		if (vtxs.size() > 0)
+		if (vtx.size() > 0)
 		{
 			// drawwwwww
 			glBindVertexArray(vao);
 			gpuProgram->setUniform(col, "color");
-			glDrawArrays(type, 0, vtxs.size());
+			glDrawArrays(type, 0, vtx.size());
 		}
 	}
 
 	std::vector<vec3>& getVtxs() {
-		return vtxs;
+		return vtx;
 	}
 
 	~Object() {
@@ -146,19 +149,20 @@ public:
 	PointCollection() : Object() {}
 
 	void addPoint(const vec3 point) {
-		this->getVtxs().push_back(point);
-		printf("=========\nPoint added: %f, %f\n", point.x, point.y);
+		vtx.push_back(point);
+		// printf("=========\nPoint added: %f, %f\n", point.x, point.y);
 		update();
 	}
 
-	vec2 findNearest(const vec3 p) {
-		vec2 nearest{};
+	vec3 findNearest(const vec3 p) {
+		vec3 nearest{};
 		float min = 10000;
 
-		for (size_t i = 0; i < this->getVtxs().size(); ++i) {
-			if (pointDistance(p, this->getVtxs()[i]) < min)
+		for (size_t i = 0; i < vtx.size(); ++i) {
+			if (pointDistance(p, vtx[i]) < min)
 			{
-				nearest = this->getVtxs()[i];
+				min = pointDistance(p, vtx[i]);
+				nearest = vtx[i];
 			}
 		}
 
@@ -171,8 +175,8 @@ public:
 };
 
 class Line : public Object {
-	vec3 p1, p2;
 public:
+	vec3 p1, p2;
 
 	float a, b, c; // Ax + By + C = 0
 
@@ -182,21 +186,18 @@ public:
 	Line(const vec3 p1, const vec3 p2) : Object(), p1(p1), p2(p2) {
 		a = p1.y - p2.y;
 		b = p2.x - p1.x;
-		c = p2.y * p1.x - p1.y * p2.x;
-		printf("=========\nLine added\n");
-		printf("Implicit: %fx + %fy + %f = 0\n", a, b, c);
-		printf("Parametric: r(t) = (%f, %f) + t * (%f, %f)\n", p1.x, p2.y, p2.x - p1.x, p2.y - p1.y);
+		c = p1.x * p2.y - p2.x * p1.y;
 	}
 
-	vec3 getIntersect(const Line& l2) {
-		float det = this->a * l2.b - l2.a * this->b;
+	static vec3 getIntersect(const Line& l1, const Line& l2) {
+		float det = l1.a * l2.b - l2.a * l1.b;
 		if (fabs(det) < 1e-6)
 		{
 			return vec3(-2.0f, -2.0f, -2.0f);
 		}
-		float mx = (this->b * this->c - l2.b * this->c) / det;
-		float my = (l2.a * this->c -this->a * l2.c) / det;
-		return vec3(mx, my, 0);
+		float mx = (l1.b * l2.c - l2.b * l1.c) / det;
+		float my = (l2.a * l1.c - l1.a * l2.c) / det;
+		return vec3(mx, my, 1);
 	}
 
 	bool isPointOnLine(const vec3 p) {
@@ -205,47 +206,61 @@ public:
 	}
 
 	void clipToBox() {
+		vec3 start(0.0f, 0.0f, -1.0f), end(0.0f, 0.0f, -1.0f);
 
-		vec3 start, end;
+		bool startSet = false;
 
-		/// minX, maxY      maxX, maxY
-		///		 +-----------+
-		///		 |start      |
-		///	     |           |
-		///		 |           |
-		///		 |        end|
-		///		 +-----------+
-		///  minX, minY      maxX, minY
-		/// 
+		float top = (p2.x - p1.x) * (1 - p1.y) / (p2.y - p1.y) + p1.x;
+		vec3 topPoint = vec3(top, 1.0f, 1.0f);
 
-		float minX = -1.0f, maxX = 1.0f, minY = -1.0f, maxY = 1.0f;
-		
-		vec3 left	= getIntersect(Line(vec3(minX, minY, 0), vec3(minX, maxY, 0)));
-		vec3 right	= getIntersect(Line(vec3(maxX, minY, 0), vec3(maxX, maxY, 0)));
-		vec3 top	= getIntersect(Line(vec3(minX, maxY, 0), vec3(maxX, maxY, 0)));
-		vec3 bottom	= getIntersect(Line(vec3(minX, maxY, 0), vec3(maxX, maxY, 0)));
+		float bottom = (p2.x - p1.x) * (-1 - p1.y) / (p2.y - p1.y) + p1.x;
+		vec3 bottomPoint = vec3(bottom, -1.0f, 1.0f);
 
-		if (fabs(left.y) <= 1)
+		float left = (p2.y - p1.y) * (-1 - p1.x) / (p2.x - p1.x) + p1.y;
+		vec3 leftPoint = vec3(-1, left, 1);
+
+		float right = (p2.y - p1.y) * (1 - p1.x) / (p2.x - p1.x) + p1.y;
+		vec3 rightPoint = vec3(1, right, 1);
+
+		if (fabs(top) <= 1.0f)
 		{
-			start = left;
-		}
-		else if (fabs(top.x) <= 1)
-		{
-			start = top;
-		}
-		else {
-			start = bottom;
+			if (!startSet) {
+				start = topPoint;
+				startSet = true;
+			}
+			else {
+				end = topPoint;
+			}
 		}
 
-		if (fabs(bottom.x) <= 1 && !vecEq(start, bottom))
+		if (fabs(bottom) <= 1.0f)
 		{
-			end = bottom;
+			if (!startSet) {
+				start = bottomPoint;
+				startSet = true;
+			}
+			else {
+				end = bottomPoint;
+			}
 		}
-		else if (fabs(right.y) <= 1) {
-			end = right;
+		if (fabs(left) <= 1.0f) {
+			if (!startSet) {
+				start = leftPoint;
+				startSet = true;
+			}
+			else {
+				start = leftPoint;
+			}
 		}
-		else {
-			end = top;
+
+		if (fabs(right) <= 1.0f) {
+			if (!startSet) {
+				start = rightPoint;
+				startSet = true;
+			}
+			else {
+				end = rightPoint;
+			}
 		}
 
 		p1 = start;
@@ -282,8 +297,14 @@ public:
 	void addLine(vec3 p1, vec3 p2) {
 		Line line = Line(p1, p2);
 		line.clipToBox();
-		this->getVtxs().push_back(p1);
-		this->getVtxs().push_back(p2);
+		
+		vtx.push_back(line.p1);
+		vtx.push_back(line.p2);
+
+		printf("=========\nLine added\n");
+		printf("Implicit: %.2fx + %.2fy + %.2f = 0\n", line.a, line.b, line.c);
+		printf("Parametric: r(t) = (%.2f, %.2f) + t * (%.2f, %.2f)\n", line.p1.x, line.p2.y, line.p2.x - line.p1.x, line.p2.y - line.p1.y);
+		
 		update();
 	}
 
@@ -292,19 +313,19 @@ public:
 		float mindist = 1000;
 		Line* nearest = nullptr;
 
-		for (size_t i = 0; i < this->getVtxs().size(); i = i+2)
+		for (size_t i = 0; i < vtx.size(); i = i+2)
 		{
-			pt1 = this->getVtxs()[i];
-			pt2 = this->getVtxs()[i + 1];
+			pt1 = vtx[i];
+			pt2 = vtx[i + 1];
 
-			Line l = Line(pt1, pt2);
+			Line* l = new Line(pt1, pt2);
 
-			float dist = pointDistToLine(point, l);
+			float dist = pointDistToLine(point, *l);
 
 			if (dist < mindist)
 			{
 				mindist = dist;
-				nearest = &l;
+				nearest = l;
 			}
 		}
 
@@ -323,6 +344,10 @@ class PointsAndLines : public glApp {
 
 	PointCollection* points;
 	LineCollection* lines;
+
+	vec3 lastP1 = vec3(0.0f, 0.0f, -1.0f), lastP2 = vec3(0.0f, 0.0f, -1.0f);
+
+	Line *lastL1 = nullptr, *lastL2 = nullptr;
 public:
 	PointsAndLines() : glApp("Points and lines") {}
 
@@ -362,40 +387,89 @@ public:
 		}
 	}
 
+
+	// Egergombok
 	void onMousePressed(MouseButton btn, int pX, int pY) {
 		float nX = 2.0f * pX / winWidth - 1;
-		float nY = 1 - 2.0f * pY / winHeight;
+		float nY = 1.0f - 2.0f * pY / winHeight;
+
+		vec3* intrsct;
+		Line* tmp = nullptr;
 
 		if (btn == MOUSE_LEFT)
 		{
 			switch (mode)
 			{
 			case POINT:
-				points->addPoint(vec3(nX, nY, 0));
-				points->update();
-				refreshScreen();
+				points->addPoint(vec3(nX, nY, 1));
+				printf("=========\nPoint added: %f, %f\n", nX, nY);
 				break;
 			case LINE:
+				vec3 selPoint = points->findNearest(vec3(nX, nY, 0));
+				if (selPoint.z != -1)
+				{
+					if (vecEq(lastP1, vec3(0.0f, 0.0f, -1.0))) {
+						lastP1 = vec3(selPoint.x, selPoint.y, 1);
+					}
+					else if (!vecEq(lastP1, vec3(selPoint.x, selPoint.y, 1))) {
+						lastP2 = vec3(selPoint.x, selPoint.y, 1);
+						lines->addLine(lastP1, lastP2);
+
+						lastP1 = vec3(0.0f, 0.0f, -1.0f), lastP2 = vec3(0.0f, 0.0f, -1.0f);
+					}
+				}
 				break;
 			case MOVE:
 				break;
 			case INTERSECT:
+				tmp = lines->findNearest(vec3(nX, nY, 0));
+
+				if (tmp->p2.z != -1.0f)
+				{
+					if (lastL1 == nullptr)
+					{
+						lastL1 = tmp;
+						tmp = nullptr;
+					} else 
+					{
+						lastL2 = tmp;
+						tmp = nullptr;
+
+						intrsct = new vec3(lastL1->getIntersect(*lastL1, *lastL2));
+						if (intrsct->z != -2.0f)
+						{
+							points->addPoint(*intrsct);
+							printf("=========\nIntersection point added: %f, %f\n", intrsct->x, intrsct->y);
+						}
+
+						delete intrsct;
+						delete lastL1;
+						delete lastL2;
+
+						intrsct = nullptr;
+						lastL1 = nullptr;
+						lastL2 = nullptr;
+					}
+				}
 				break;
 			default:
 				break;
 			}
 		}
+		refreshScreen();
 	}
 
 	// Ablak ujrarajzolas
 	void onDisplay() {
 		glClearColor(0.0f, 0.0f, 0.0f, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
-		glViewport(0, 0, winWidth, winHeight);
 
 		points->Draw(vec3(1.0f, 0.0f, 0.0f));
 		lines->Draw(vec3(0.0f, 1.0f, 1.0f));
+
+		refreshScreen();
 	}
 };
 
 PointsAndLines app;
+

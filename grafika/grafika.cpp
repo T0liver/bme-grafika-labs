@@ -70,6 +70,12 @@ enum Mode
 	
 };
 
+enum MBtn
+{
+	DOWN,
+	UP
+};
+
 GPUProgram* gpuProgram;
 
 // Segédfüggvények
@@ -269,7 +275,9 @@ public:
 	}
 
 	void translateLine(const vec3& p) {
+		// mid point: vec3((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, 1);
 		vec3 trans = vec3(p.x - p1.x, p.y - p1.y, 0);
+		// vec3 trans = vec3(p.x - ((p1.x + p2.x) / 2), p.y - ((p1.y + p2.y) / 2), 0);
 
 		p1.x += trans.x;
 		p1.y += trans.y;
@@ -330,7 +338,19 @@ public:
 		}
 
 		return nearest;
+	}
 
+	void updateLineVertices(Line* line) {
+		for (size_t i = 0; i < vtx.size(); i += 2)
+		{
+			if (vecEq(vtx[i], line->p1) && vecEq(vtx[i + 1], line->p2))
+			{
+				vtx[i] = line->p1;
+				vtx[i + 1] = line->p2;
+				update();
+				return;
+			}
+		}
 	}
 
 	void Draw(vec3 color) {
@@ -341,6 +361,7 @@ public:
 
 class PointsAndLines : public glApp {
 	Mode mode = POINT;
+	MBtn mmode = UP;
 
 	PointCollection* points;
 	LineCollection* lines;
@@ -364,8 +385,12 @@ public:
 		gpuProgram = new GPUProgram(vertSource, fragSource);
 	}
 
+	// Kozosen hasznalt vonal valtozo
+	Line* nrst;
+
 	// Billenytuzet
 	void onKeyboard(int key) {
+		nrst = nullptr;
 		switch (key)
 		{
 			case 'p':
@@ -419,8 +444,6 @@ public:
 					}
 				}
 				break;
-			case MOVE:
-				break;
 			case INTERSECT:
 				tmp = lines->findNearest(vec3(nX, nY, 0));
 
@@ -452,11 +475,63 @@ public:
 					}
 				}
 				break;
+			case MOVE:
+				nrst = lines->findNearest(vec3(nX, nY, 0));
+				printf("click: %f, %f\n", nX, nY);
+				mmode = DOWN;
+				break;
 			default:
 				break;
 			}
 		}
 		refreshScreen();
+	}
+
+	void onMouseReleased(MouseButton but, int pX, int pY) {
+		mmode = UP;
+	}
+
+	void onMouseMotion(int pX, int pY) {
+		if (mode == MOVE && mmode == DOWN)
+		{
+
+			float nX = 2.0f * pX / winWidth - 1;
+			float nY = 1.0f - 2.0f * pY / winHeight;
+
+			if (nrst != nullptr && nrst->p2.z != -1.0f)
+			{
+
+				printf("drag: %f, %f", nX, nY);
+				Line* tmpline = new Line(nrst->p1, nrst->p2);
+				tmpline->translateLine(vec3(nX, nY, 0));
+
+				std::vector<vec3>* newVtx = &lines->getVtxs();
+
+				for (size_t i = 0; i < newVtx->size() - 1; i++)
+				{
+					if ((vecEq(newVtx->at(i), nrst->p1) && vecEq(newVtx->at(i + 1), nrst->p2)) ||
+						(vecEq(newVtx->at(i), nrst->p2) && vecEq(newVtx->at(i + 1), nrst->p1)))
+					{
+						printf("\tLine moved\t");
+						Line tmp;
+						tmp.p1 = tmpline->p1;
+						tmp.p2 = tmpline->p2;
+						tmp.clipToBox();
+
+						nrst->p1 = tmp.p1;
+						nrst->p2 = tmp.p2;
+						nrst->clipToBox();
+
+						newVtx->at(i) = nrst->p1;
+						newVtx->at(i + 1) = nrst->p2;
+					}
+
+				}
+
+				lines->update();
+				refreshScreen();
+			}
+		}
 	}
 
 	// Ablak ujrarajzolas

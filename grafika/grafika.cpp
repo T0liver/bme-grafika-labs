@@ -76,7 +76,7 @@ enum MBtn
 	UP
 };
 
-GPUProgram* gpuProgram;
+GPUProgram* gpuProgram = nullptr;
 
 // Segédfüggvények
 float pointDistance(const vec3 p1, const vec3 p2) {
@@ -131,7 +131,10 @@ public:
 		{
 			// drawwwwww
 			glBindVertexArray(vao);
-			gpuProgram->setUniform(col, "color");
+			if (gpuProgram)
+			{
+				gpuProgram->setUniform(col, "color");
+			}
 			glDrawArrays(type, 0, vtx.size());
 		}
 	}
@@ -212,43 +215,31 @@ public:
 	}
 
 	void clipToBox() {
+		/*
+		vec3 dir = p1 - p2;
+
+		dir = normalize(dir);
+
+		p1 = p1 + dir * 10.0f;
+		p2 = p2 - dir * 10.0f;*/
+		
 		vec3 start(0.0f, 0.0f, -1.0f), end(0.0f, 0.0f, -1.0f);
 
 		bool startSet = false;
 
-		float top = (p2.x - p1.x) * (1 - p1.y) / (p2.y - p1.y) + p1.x;
+		float top = (p2.x - p1.x) * (1.0f - p1.y) / (p2.y - p1.y) + p1.x;
 		vec3 topPoint = vec3(top, 1.0f, 1.0f);
 
-		float bottom = (p2.x - p1.x) * (-1 - p1.y) / (p2.y - p1.y) + p1.x;
+		float bottom = (p2.x - p1.x) * (-1.0f - p1.y) / (p2.y - p1.y) + p1.x;
 		vec3 bottomPoint = vec3(bottom, -1.0f, 1.0f);
 
-		float left = (p2.y - p1.y) * (-1 - p1.x) / (p2.x - p1.x) + p1.y;
-		vec3 leftPoint = vec3(-1, left, 1);
+		float left = (p2.y - p1.y) * (-1.0f - p1.x) / (p2.x - p1.x) + p1.y;
+		vec3 leftPoint = vec3(-1.0f, left, 1.0f);
 
-		float right = (p2.y - p1.y) * (1 - p1.x) / (p2.x - p1.x) + p1.y;
-		vec3 rightPoint = vec3(1, right, 1);
+		float right = (p2.y - p1.y) * (1.0f - p1.x) / (p2.x - p1.x) + p1.y;
+		vec3 rightPoint = vec3(1.0f, right, 1.0f);
 
-		if (fabs(top) <= 1.0f)
-		{
-			if (!startSet) {
-				start = topPoint;
-				startSet = true;
-			}
-			else {
-				end = topPoint;
-			}
-		}
 
-		if (fabs(bottom) <= 1.0f)
-		{
-			if (!startSet) {
-				start = bottomPoint;
-				startSet = true;
-			}
-			else {
-				end = bottomPoint;
-			}
-		}
 		if (fabs(left) <= 1.0f) {
 			if (!startSet) {
 				start = leftPoint;
@@ -256,6 +247,18 @@ public:
 			}
 			else {
 				start = leftPoint;
+			}
+		}
+
+		if (fabs(top) <= 1.0f)
+		{
+			if (!startSet)
+			{
+				start = topPoint;
+				startSet = true;
+			}
+			else {
+				end = topPoint;
 			}
 		}
 
@@ -269,15 +272,27 @@ public:
 			}
 		}
 
+		if (fabs(bottom) <= 1.0f)
+		{
+			if (!startSet) {
+				start = bottomPoint;
+				startSet = true;
+			}
+			else {
+				end = bottomPoint;
+			}
+		}
+
 		p1 = start;
 		p2 = end;
-
+		
 	}
 
 	void translateLine(const vec3& p) {
 		// mid point: vec3((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, 1);
-		vec3 trans = vec3(p.x - p1.x, p.y - p1.y, 0);
-		// vec3 trans = vec3(p.x - ((p1.x + p2.x) / 2), p.y - ((p1.y + p2.y) / 2), 0);
+		// vec3 trans = vec3(p.x - p1.x, p.y - p1.y, 0);
+		//vec3 trans = p;
+		vec3 trans = vec3(p.x - ((p1.x + p2.x) / 2.0f), p.y - ((p1.y + p2.y) / 2.0f), 0.0f);
 
 		p1.x += trans.x;
 		p1.y += trans.y;
@@ -292,7 +307,7 @@ public:
 
 /// Random segedfuggveny, ami csak itt fog mukodni
 float pointDistToLine(const vec3 point, const Line& line) {
-	float ret;
+	float ret = 0;
 	ret = fabs(line.a * point.x + line.b * point.y + line.c)
 		/ sqrt(line.a * line.a + line.b * line.b);
 	return ret;
@@ -323,6 +338,8 @@ public:
 
 		for (size_t i = 0; i < vtx.size(); i = i+2)
 		{
+			if (i + 1 >= vtx.size()) { break; }
+
 			pt1 = vtx[i];
 			pt2 = vtx[i + 1];
 
@@ -333,24 +350,15 @@ public:
 			if (dist < mindist)
 			{
 				mindist = dist;
+				delete nearest;
 				nearest = l;
+			}
+			else {
+				delete l;
 			}
 		}
 
 		return nearest;
-	}
-
-	void updateLineVertices(Line* line) {
-		for (size_t i = 0; i < vtx.size(); i += 2)
-		{
-			if (vecEq(vtx[i], line->p1) && vecEq(vtx[i + 1], line->p2))
-			{
-				vtx[i] = line->p1;
-				vtx[i + 1] = line->p2;
-				update();
-				return;
-			}
-		}
 	}
 
 	void Draw(vec3 color) {
@@ -386,7 +394,7 @@ public:
 	}
 
 	// Kozosen hasznalt vonal valtozo
-	Line* nrst;
+	Line* nrst = nullptr;
 
 	// Billenytuzet
 	void onKeyboard(int key) {
@@ -412,6 +420,9 @@ public:
 		}
 	}
 
+	// Segedvaltozo
+	vec3 clickedPoint;
+
 
 	// Egergombok
 	void onMousePressed(MouseButton btn, int pX, int pY) {
@@ -420,17 +431,21 @@ public:
 
 		vec3* intrsct;
 		Line* tmp = nullptr;
+		vec3 selPoint;
 
 		if (btn == MOUSE_LEFT)
 		{
 			switch (mode)
 			{
 			case POINT:
+			{
 				points->addPoint(vec3(nX, nY, 1));
 				printf("=========\nPoint added: %f, %f\n", nX, nY);
 				break;
+			}
 			case LINE:
-				vec3 selPoint = points->findNearest(vec3(nX, nY, 0));
+			{
+				selPoint = points->findNearest(vec3(nX, nY, 0));
 				if (selPoint.z != -1)
 				{
 					if (vecEq(lastP1, vec3(0.0f, 0.0f, -1.0))) {
@@ -444,10 +459,12 @@ public:
 					}
 				}
 				break;
+			}
 			case INTERSECT:
+			{
 				tmp = lines->findNearest(vec3(nX, nY, 0));
 
-				if (tmp->p2.z != -1.0f)
+				if (tmp && tmp->p2.z != -1.0f)
 				{
 					if (lastL1 == nullptr)
 					{
@@ -466,53 +483,55 @@ public:
 						}
 
 						delete intrsct;
-						delete lastL1;
-						delete lastL2;
-
-						intrsct = nullptr;
 						lastL1 = nullptr;
 						lastL2 = nullptr;
 					}
 				}
 				break;
+			}
 			case MOVE:
+			{
 				nrst = lines->findNearest(vec3(nX, nY, 0));
+				clickedPoint = vec3(nX, nY, 0);
 				printf("click: %f, %f\n", nX, nY);
 				mmode = DOWN;
 				break;
+			}
 			default:
+			{
 				break;
+			}
 			}
 		}
 		refreshScreen();
 	}
 
 	void onMouseReleased(MouseButton but, int pX, int pY) {
+		clickedPoint = vec3(0.0f, 0.0f, -2.0f);
 		mmode = UP;
 	}
 
 	void onMouseMotion(int pX, int pY) {
 		if (mode == MOVE && mmode == DOWN)
 		{
-
 			float nX = 2.0f * pX / winWidth - 1;
 			float nY = 1.0f - 2.0f * pY / winHeight;
 
 			if (nrst != nullptr && nrst->p2.z != -1.0f)
 			{
-
-				printf("drag: %f, %f", nX, nY);
 				Line* tmpline = new Line(nrst->p1, nrst->p2);
+				vec3 ptmp = vec3(nX - clickedPoint.x, nY - clickedPoint.y, 0);
+				// tmpline->translateLine(ptmp);
 				tmpline->translateLine(vec3(nX, nY, 0));
+				// ptmp += clickedPoint;
 
-				std::vector<vec3>* newVtx = &lines->getVtxs();
+				std::vector<vec3>& newVtx = lines->getVtxs();
 
-				for (size_t i = 0; i < newVtx->size() - 1; i++)
+				for (size_t i = 0; i + 1 < newVtx.size(); i++)
 				{
-					if ((vecEq(newVtx->at(i), nrst->p1) && vecEq(newVtx->at(i + 1), nrst->p2)) ||
-						(vecEq(newVtx->at(i), nrst->p2) && vecEq(newVtx->at(i + 1), nrst->p1)))
+					if ((vecEq(newVtx[i], nrst->p1) && vecEq(newVtx[i + 1], nrst->p2)) ||
+						(vecEq(newVtx[i], nrst->p2) && vecEq(newVtx[i + 1], nrst->p1)))
 					{
-						printf("\tLine moved\t");
 						Line tmp;
 						tmp.p1 = tmpline->p1;
 						tmp.p2 = tmpline->p2;
@@ -522,8 +541,8 @@ public:
 						nrst->p2 = tmp.p2;
 						nrst->clipToBox();
 
-						newVtx->at(i) = nrst->p1;
-						newVtx->at(i + 1) = nrst->p2;
+						newVtx[i] = nrst->p1;
+						newVtx[i + 1] = nrst->p2;
 					}
 
 				}
@@ -536,15 +555,18 @@ public:
 
 	// Ablak ujrarajzolas
 	void onDisplay() {
-		glClearColor(0.0f, 0.0f, 0.0f, 1);
+		glClearColor(0.4f, 0.4f, 0.4f, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		points->Draw(vec3(1.0f, 0.0f, 0.0f));
 		lines->Draw(vec3(0.0f, 1.0f, 1.0f));
+		points->Draw(vec3(1.0f, 0.0f, 0.0f));
+	}
 
-		refreshScreen();
+	~PointsAndLines() {
+		delete points;
+		delete lines;
+		delete gpuProgram;
 	}
 };
 
 PointsAndLines app;
-

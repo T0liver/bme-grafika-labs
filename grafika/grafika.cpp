@@ -31,6 +31,12 @@ const char* fragSource = R"(
 const int winWidth = 600, winHeight = 600;
 const int pointSize = 10, lineSize = 3;
 
+enum GState {
+	WAIT,
+	START,
+	FALLEN
+};
+
 class Camera {
 	vec3 center;
 	float width, height;
@@ -175,6 +181,102 @@ public:
 	}
 };
 
+class Gondola {
+	vec3 position;
+	float angle;
+	float speed;
+	GState state;
+	Spline* spline;
+	unsigned int vao, vboCirc, vboSpks;
+	std::vector<vec3> circVertx, spksVertx;
+
+	void createCircle() {
+		const int nrSegs = 100;
+		const float radius = 1.0f;
+		for (int i = 0; i <= nrSegs; ++i) {
+			float theta = 2.0f * M_PI * float(i) / float(nrSegs);
+			float x = radius * cosf(theta);
+			float y = radius * sinf(theta);
+			circVertx.push_back(vec3(x, y, 0.0f));
+		}
+	}
+
+	void createSpokes() {
+		const int nrSpks = 8;
+		const float radius = 1.0f;
+		for (int i = 0; i < nrSpks; ++i) {
+			float theta = 2.0f * M_PI * float(i) / float(nrSpks);
+			float x = radius * cosf(theta);
+			float y = radius * sinf(theta);
+			spksVertx.push_back(vec3(0.0f, 0.0f, 0.0f));
+			spksVertx.push_back(vec3(x, y, 0.0f));
+		}
+	}
+public:
+	Gondola(Spline* spline) : spline(spline), state(WAIT), speed(0.0f), angle(0.0f) {
+		createCircle();
+		createSpokes();
+
+		glGenVertexArrays(1, &vao);
+		glBindVertexArray(vao);
+
+		glGenBuffers(1, &vboCirc);
+		glBindBuffer(GL_ARRAY_BUFFER, vboCirc);
+		glBufferData(GL_ARRAY_BUFFER, circVertx.size() * sizeof(vec3), circVertx.data(), GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+		glGenBuffers(1, &vboSpks);
+		glBindBuffer(GL_ARRAY_BUFFER, vboSpks);
+		glBufferData(GL_ARRAY_BUFFER, spksVertx.size() * sizeof(vec3), spksVertx.data(), GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+	}
+
+	~Gondola() {
+		glDeleteBuffers(1, &vboCirc);
+		glDeleteBuffers(1, &vboSpks);
+		glDeleteVertexArrays(1, &vao);
+	}
+
+	void Start() {
+		state = START;
+		speed = 0.0f;
+	}
+
+	void Animate(float dt) {
+		if (state == START) {
+			// Simple physics animation
+			speed += 9.81f * dt; // Gravity
+			position += vec3(speed * dt, 0.0f, 0.0f); // Update position
+			angle += speed * dt; // Update angle
+
+			// Check if fallen
+			if (position.y < -10.0f) {
+				state = FALLEN;
+			}
+		}
+	}
+
+	void Draw(GPUProgram* prog, const mat4& mvp) {
+		prog->Use();
+		mat4 model = translate(mat4(1.0f), position) * rotate(mat4(1.0f), angle, vec3(0.0f, 0.0f, 1.0f));
+		mat4 mvpMatrix = mvp * model;
+		prog->setUniform(mvpMatrix, "mvp");
+
+		// Draw circle
+		prog->setUniform(vec3(0.0f, 0.0f, 1.0f), "color"); // Blue fill
+		glBindVertexArray(vao);
+		glBindBuffer(GL_ARRAY_BUFFER, vboCirc);
+		glDrawArrays(GL_TRIANGLE_FAN, 0, circVertx.size());
+
+		// Draw spokes
+		prog->setUniform(vec3(1.0f, 1.0f, 1.0f), "color"); // White spokes
+		glBindBuffer(GL_ARRAY_BUFFER, vboSpks);
+		glDrawArrays(GL_LINES, 0, spksVertx.size());
+	}
+
+};
 
 class Hullamvasut : public glApp {
 	GPUProgram* gpuProgram;	   // csúcspont és pixel árnyalók

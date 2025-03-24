@@ -160,6 +160,12 @@ public:
 		}
 	}
 
+	vec3 getPoint(float t) const {
+		if (crvPoints.empty()) { return vec3(0.0f); }
+		int i = static_cast<int>(t * (crvPoints.size() - 1));
+		return crvPoints[i];
+	}
+
 	void updateGPU() {
 		glBindBuffer(GL_ARRAY_BUFFER, vboCurve);
 		glBufferData(GL_ARRAY_BUFFER, crvPoints.size() * sizeof(vec3), crvPoints.data(), GL_DYNAMIC_DRAW);
@@ -259,7 +265,9 @@ public:
 	}
 
 	void Draw(GPUProgram* prog, const mat4& mvp) {
+		if (state == WAIT) { return; }
 		prog->Use();
+		Animate(0.01f);
 		mat4 model = translate(mat4(1.0f), position) * rotate(mat4(1.0f), angle, vec3(0.0f, 0.0f, 1.0f));
 		mat4 mvpMatrix = mvp * model;
 		prog->setUniform(mvpMatrix, "mvp");
@@ -282,6 +290,7 @@ class Hullamvasut : public glApp {
 	GPUProgram* gpuProgram;	   // csúcspont és pixel árnyalók
 	Camera* camera;
 	Spline* spline;
+	Gondola* gondola;
 public:
 	Hullamvasut() : glApp("Hullamvasut") {}
 
@@ -290,6 +299,7 @@ public:
 		gpuProgram = new GPUProgram(vertSource, fragSource);
 		camera = new Camera(vec3(0.0f, 0.0f, 0.0f), 20.0f, 20.0f);
 		spline = new Spline();
+		gondola = new Gondola(spline);
 		glLineWidth(lineSize);
 		glPointSize(pointSize);
 	}
@@ -304,6 +314,13 @@ public:
 		}
 	}
 
+	void onKeyboard(int key) {
+		printf("Key: %d\n", key);
+		if (key == 32) {
+			gondola->Start();
+		}
+	}
+
 	// Ablak újrarajzolás
 	void onDisplay() {
 		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);     // háttér szín
@@ -313,10 +330,14 @@ public:
 		gpuProgram->setUniform(viewProj, "mvp");
 
 		spline->Draw(gpuProgram);
+		gondola->Draw(gpuProgram, viewProj);
 	}
 
 	~Hullamvasut() {
 		delete gpuProgram;
+		delete camera;
+		delete spline;
+		delete gondola;
 	}
 };
 

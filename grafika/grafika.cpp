@@ -33,6 +33,38 @@ const char* fragSource = R"(
 const int winWidth = 600, winHeight = 600;
 const int pointSize = 10, lineSize = 3;
 
+class Camera {
+	vec3 center;
+	float width, height;
+public:
+	Camera(vec3 center, float width, float height) : center(center), width(width), height(height) {}
+
+	mat4 getViewM() const {
+		return lookAt(center + vec3(0, 0, -1), center, vec3(0, 1, 0));
+	}
+
+	mat4 getProjM() const {
+		return ortho(
+			center.x - width / 2, center.x + width / 2,
+			center.y - height / 2, center.y + height / 2,
+			0.1f, 100.0f);
+	}
+
+	mat4 getViewIM() const {
+		return inverse(getViewM());
+	}
+
+	mat4 getProjIM() const {
+		return inverse(getProjM());
+	}
+
+	vec3 scrToW(const vec2& cords, const vec2& size) const {
+		vec4 viewport = vec4(0, 0, size.x, size.y);
+		vec3 win = vec3(cords, 1.0f);
+		// mat4 viewProjI = getProjIM() * getViewIM();
+		return unProject(win, getViewM(), getViewM(), viewport);
+	}
+};
 
 
 class Hullamvasut : public glApp {

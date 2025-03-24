@@ -1,12 +1,14 @@
 //=============================================================================================
-// Zöld háromszög: A framework.h osztályait felhasználó megoldás
+// Hullámvasút
 //=============================================================================================
 #include "framework.h"
 
 // csúcspont árnyaló
 const char* vertSource = R"(
-	#version 330				
+	#version 330
     precision highp float;
+
+    uniform mat4 MVP;		// modelnézettér projekciós transzformáció
 
 	layout(location = 0) in vec2 cP;	// 0. bemeneti regiszter
 
@@ -29,19 +31,17 @@ const char* fragSource = R"(
 )";
 
 const int winWidth = 600, winHeight = 600;
+const int pointSize = 10, lineSize = 3;
 
-class GreenTriangleApp : public glApp {
+class Hullamvasut : public glApp {
 	Geometry<vec2>* triangle;  // geometria
 	GPUProgram* gpuProgram;	   // csúcspont és pixel árnyalók
 public:
-	GreenTriangleApp() : glApp("Green triangle") {}
+	Hullamvasut() : glApp("Hullamvasut") {}
 
 	// Inicializáció, 
 	void onInitialization() {
-		triangle = new Geometry<vec2>;
-		triangle->Vtx() = { vec2(-0.8f, -0.8f), vec2(-0.6f, 1.0f), vec2(0.8f, -0.2f) };
-		triangle->updateGPU();
-		gpuProgram = new GPUProgram(vertSource, fragSource);
+
 	}
 
 	// Ablak újrarajzolás
@@ -49,9 +49,8 @@ public:
 		glClearColor(0, 0, 0, 0);     // háttér szín
 		glClear(GL_COLOR_BUFFER_BIT); // rasztertár törlés
 		glViewport(0, 0, winWidth, winHeight);
-		triangle->Draw(gpuProgram, GL_TRIANGLES, vec3(0.0f, 1.0f, 0.0f));
 	}
 };
 
-GreenTriangleApp app;
+Hullamvasut app;
 

@@ -1,9 +1,9 @@
 //=============================================================================================
-// Zöld háromszög: A framework.h osztályait felhasználó megoldás
+// Alap grafika kÃ³d: A framework.h osztÃ¡lyait felhasznÃ¡lÃ³ megoldÃ¡s
 //=============================================================================================
 #include "framework.h"
 
-// csúcspont árnyaló
+// csÃºcspont Ã¡rnyalÃ³
 const char* vertSource = R"(
 	#version 330				
     precision highp float;
@@ -11,17 +11,17 @@ const char* vertSource = R"(
 	layout(location = 0) in vec2 cP;	// 0. bemeneti regiszter
 
 	void main() {
-		gl_Position = vec4(cP.x, cP.y, 0, 1); 	// bemenet már normalizált eszközkoordinátákban
+		gl_Position = vec4(cP.x, cP.y, 0, 1); 	// bemenet mÃ¡r normalizÃ¡lt eszkÃ¶zkoordinÃ¡tÃ¡kban
 	}
 )";
 
-// pixel árnyaló
+// pixel Ã¡rnyalÃ³
 const char* fragSource = R"(
 	#version 330
     precision highp float;
 
-	uniform vec3 color;			// konstans szín
-	out vec4 fragmentColor;		// pixel szín
+	uniform vec3 color;			// konstans szÃ­n
+	out vec4 fragmentColor;		// pixel szÃ­n
 
 	void main() {
 		fragmentColor = vec4(color, 1); // RGB -> RGBA
@@ -30,28 +30,23 @@ const char* fragSource = R"(
 
 const int winWidth = 600, winHeight = 600;
 
-class GreenTriangleApp : public glApp {
-	Geometry<vec2>* triangle;  // geometria
-	GPUProgram* gpuProgram;	   // csúcspont és pixel árnyalók
+class GrafikaApp : public glApp {
+	GPUProgram* gpuProgram;	   // csÃºcspont Ã©s pixel Ã¡rnyalÃ³k
 public:
-	GreenTriangleApp() : glApp("Green triangle") {}
+	GrafikaApp() : glApp("Grafika") {}
 
-	// Inicializáció, 
+	// InicializÃ¡ciÃ³, 
 	void onInitialization() {
-		triangle = new Geometry<vec2>;
-		triangle->Vtx() = { vec2(-0.8f, -0.8f), vec2(-0.6f, 1.0f), vec2(0.8f, -0.2f) };
-		triangle->updateGPU();
 		gpuProgram = new GPUProgram(vertSource, fragSource);
 	}
 
-	// Ablak újrarajzolás
+	// Ablak ÃºjrarajzolÃ¡s
 	void onDisplay() {
-		glClearColor(0, 0, 0, 0);     // háttér szín
-		glClear(GL_COLOR_BUFFER_BIT); // rasztertár törlés
+		glClearColor(0, 0, 0, 0);     // hÃ¡ttÃ©r szÃ­n
+		glClear(GL_COLOR_BUFFER_BIT); // rasztertÃ¡r tÃ¶rlÃ©s
 		glViewport(0, 0, winWidth, winHeight);
-		triangle->Draw(gpuProgram, GL_TRIANGLES, vec3(0.0f, 1.0f, 0.0f));
 	}
 };
 
-GreenTriangleApp app;
+GrafikaApp app;
 

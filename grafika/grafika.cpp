@@ -59,99 +59,146 @@ public:
 	vec3 scrToW(const vec2& cords, const vec2& size) const {
 		vec4 viewport = vec4(0, 0, size.x, size.y);
 		vec3 win = vec3(cords, 1.0f);
-		// mat4 viewProjI = getProjIM() * getViewIM();
-		return unProject(win, getViewM(), getViewM(), viewport);
+		return unProject(win, getViewM(), getProjM(), viewport);
 	}
 };
 
 class Spline {
 	std::vector<vec3> ctrlPoints;
 	std::vector<vec3> crvPoints;
-	unsigned int vao, vbo;
+	unsigned int vaoCurve, vboCurve;
+	unsigned int vaoCtrl, vboCtrl;
+
+	vec3 hermite(const glm::vec3& p0, const glm::vec3& v0, const glm::vec3& p1, const glm::vec3& v1, float t) {
+		float t2 = t * t;
+		float t3 = t2 * t;
+
+		glm::vec3 result = (2.0f * t3 - 3.0f * t2 + 1.0f) * p0 +
+			(t3 - 2.0f * t2 + t) * v0 +
+			(-2.0f * t3 + 3.0f * t2) * p1 +
+			(t3 - t2) * v1;
+		return result;
+	}
 
 public:
 	Spline() {
-		glGenVertexArrays(1, &vao);	
-		glBindVertexArray(vao);
-		glGenBuffers(1, &vbo);
-		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		// Curve VAO and VBO
+		glGenVertexArrays(1, &vaoCurve);
+		glBindVertexArray(vaoCurve);
+		glGenBuffers(1, &vboCurve);
+		glBindBuffer(GL_ARRAY_BUFFER, vboCurve);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+		// Control points VAO and VBO
+		glGenVertexArrays(1, &vaoCtrl);
+		glBindVertexArray(vaoCtrl);
+		glGenBuffers(1, &vboCtrl);
+		glBindBuffer(GL_ARRAY_BUFFER, vboCtrl);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 	}
-	
+
 	~Spline() {
-		glDeleteBuffers(1, &vbo);
-		glDeleteVertexArrays(1, &vao);
+		glDeleteBuffers(1, &vboCurve);
+		glDeleteVertexArrays(1, &vaoCurve);
+		glDeleteBuffers(1, &vboCtrl);
+		glDeleteVertexArrays(1, &vaoCtrl);
 	}
 
 	void addCtrlPoint(const vec3& point) {
 		ctrlPoints.push_back(point);
-		calcCrvPoints();
+		if (ctrlPoints.size() > 1) {
+			calcCrvPoints();
+		}
 		updateGPU();
 	}
 
 	void calcCrvPoints() {
 		crvPoints.clear();
 		const int nrSegs = 100;
-		for (size_t i = 1; i + 2 < ctrlPoints.size(); i++) {
+
+		for (size_t i = 0; i < ctrlPoints.size() - 1; i++) {
+			vec3 v0, v1;
+			if (i == 0) {
+				vec3 cr = ctrlPoints[i + 1] - ctrlPoints[i];
+				vec3 nx;
+				if (ctrlPoints.size() < 3) {
+					nx = ctrlPoints[i + 1] - ctrlPoints[i];
+				}
+				else {
+					nx = ctrlPoints[i + 2] - ctrlPoints[i + 1];
+				}
+				v0 = cr * 0.5f;
+				v1 = (cr + nx) * 0.5f;
+			}
+			else if (i == ctrlPoints.size() - 2) {
+				vec3 pr = ctrlPoints[i] - ctrlPoints[i - 1];
+				vec3 cr = ctrlPoints[i + 1] - ctrlPoints[i];
+				v0 = (pr + cr) * 0.5f;
+				v1 = cr * 0.5f;
+			}
+			else {
+				vec3 pr = ctrlPoints[i] - ctrlPoints[i - 1];
+				vec3 cr = ctrlPoints[i + 1] - ctrlPoints[i];
+				vec3 nx = ctrlPoints[i + 2] - ctrlPoints[i + 1];
+				v0 = (pr + cr) * 0.5f;
+				v1 = (cr + nx) * 0.5f;
+			}
+
 			for (int j = 0; j <= nrSegs; j++) {
 				float t = (float)j / nrSegs;
-				vec3 p = catmullRom(ctrlPoints[i - 1], ctrlPoints[i], ctrlPoints[i + 1], ctrlPoints[i + 2], t);
+				vec3 p = hermite(ctrlPoints[i], v0, ctrlPoints[i + 1], v1, t);
 				crvPoints.push_back(p);
 			}
 		}
 	}
 
-	vec3 catmullRom(const vec3& p0, const vec3& p1, const vec3& p2, const vec3& p3, float t) {
-		float t2 = t * t;
-		float t3 = t2 * t;
-
-		vec3 ret = 0.5f * ((2.0f * p1) +
-			(-p0 + p2) * t +
-			(2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3) * t2 +
-			(-p0 + 3.0f * p1 - 3.0f * p2 + p3) * t3);
-
-		return ret;
-	}
-
 	void updateGPU() {
-		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, crvPoints.size() * sizeof(vec3), &crvPoints[0], GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, vboCurve);
+		glBufferData(GL_ARRAY_BUFFER, crvPoints.size() * sizeof(vec3), crvPoints.data(), GL_DYNAMIC_DRAW);
+
+		glBindBuffer(GL_ARRAY_BUFFER, vboCtrl);
+		glBufferData(GL_ARRAY_BUFFER, ctrlPoints.size() * sizeof(vec3), ctrlPoints.data(), GL_DYNAMIC_DRAW);
 	}
 
 	void Draw(GPUProgram* prog) {
 		prog->Use();
 
-		glBindVertexArray(vao);
+		glBindVertexArray(vaoCurve);
 		prog->setUniform(vec3(1.0f, 1.0f, 0.0f), "color");
 		glDrawArrays(GL_LINE_STRIP, 0, crvPoints.size());
 
-		glPointSize(10);
+		glBindVertexArray(vaoCtrl);
 		prog->setUniform(vec3(1.0f, 0.0f, 0.0f), "color");
-		glDrawArrays(GL_POINTS, 0, crvPoints.size());
+		glDrawArrays(GL_POINTS, 0, ctrlPoints.size());
 	}
 };
 
 
 class Hullamvasut : public glApp {
-	Geometry<vec2>* triangle;  // geometria
 	GPUProgram* gpuProgram;	   // csúcspont és pixel árnyalók
+	Camera* camera;
+	Spline* spline;
 public:
 	Hullamvasut() : glApp("Hullamvasut") {}
 
 	// Inicializáció
 	void onInitialization() {
-		glViewport(0, 0, winWidth, winHeight);
-
-		glPointSize(pointSize);
-		glLineWidth(lineSize);
-
 		gpuProgram = new GPUProgram(vertSource, fragSource);
+		camera = new Camera(vec3(0.0f, 0.0f, 0.0f), 20.0f, 20.0f);
+		spline = new Spline();
+		glLineWidth(lineSize);
+		glPointSize(pointSize);
 	}
 
 	void onMousePressed(MouseButton btn, int pX, int pY) {
 		if (btn == MOUSE_LEFT) {
-
+			vec2 scrCords = vec2(pX, winHeight - pY);
+			vec2 scrSize = vec2(winWidth, winHeight);
+			vec3 worldCords = camera->scrToW(scrCords, scrSize);
+			spline->addCtrlPoint(worldCords);
+			refreshScreen();
 		}
 	}
 
@@ -159,6 +206,11 @@ public:
 	void onDisplay() {
 		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);     // háttér szín
 		glClear(GL_COLOR_BUFFER_BIT); // rasztertár törlés
+		glViewport(0, 0, winWidth, winHeight);
+		mat4 viewProj = camera->getProjM() * camera->getViewM();
+		gpuProgram->setUniform(viewProj, "mvp");
+
+		spline->Draw(gpuProgram);
 	}
 
 	~Hullamvasut() {
@@ -167,4 +219,3 @@ public:
 };
 
 Hullamvasut app;
-

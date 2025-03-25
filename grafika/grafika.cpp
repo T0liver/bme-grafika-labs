@@ -166,6 +166,43 @@ public:
 		return crvPoints[i];
 	}
 
+	vec3 getTangent(float t) const {
+		if (crvPoints.empty()) { return vec3(0.0f); }
+		int i = static_cast<int>(t * (crvPoints.size() - 1));
+		if (i == 0) {
+			return normalize(crvPoints[i + 1] - crvPoints[i]);
+		}
+		else if (i == crvPoints.size() - 1) {
+			return normalize(crvPoints[i] - crvPoints[i - 1]);
+		}
+		else {
+			return normalize(crvPoints[i + 1] - crvPoints[i - 1]);
+		}
+	}
+
+	float getCurvature(float t) const {
+		if (crvPoints.empty()) { return 0.0f; }
+		int i = static_cast<int>(t * (crvPoints.size() - 1));
+		vec3 tangent = getTangent(t);
+		vec3 nextTangent;
+		if (i == 0) {
+			nextTangent = getTangent((i + 1) / float(crvPoints.size() - 1));
+		}
+		else if (i == crvPoints.size() - 1) {
+			nextTangent = getTangent((i - 1) / float(crvPoints.size() - 1));
+		}
+		else {
+			nextTangent = getTangent((i + 1) / float(crvPoints.size() - 1));
+		}
+		vec3 dTangent = nextTangent - tangent;
+		if (i == crvPoints.size() - 1) {
+			return length(dTangent) / length(crvPoints[i] - crvPoints[i - 1]);
+		} else if (i == 0) {
+			return length(dTangent) / length(crvPoints[i + 1] - crvPoints[i]);
+		}
+		return length(dTangent) / length(crvPoints[i + 1] - crvPoints[i - 1]);
+	}
+
 	void updateGPU() {
 		glBindBuffer(GL_ARRAY_BUFFER, vboCurve);
 		glBufferData(GL_ARRAY_BUFFER, crvPoints.size() * sizeof(vec3), crvPoints.data(), GL_DYNAMIC_DRAW);
@@ -189,8 +226,12 @@ public:
 
 class Gondola {
 	vec3 position;
-	float angle;
-	float speed;
+	float angle,
+		speed,
+		t;
+	float mass = 1.0f,
+		radius = 1.0f,
+		gravity = 40.0f;
 	GState state;
 	Spline* spline;
 	unsigned int vao, vboCirc, vboSpks;
@@ -208,8 +249,7 @@ class Gondola {
 	}
 
 	void createSpokes() {
-		const int nrSpks = 8;
-		const float radius = 1.0f;
+		const int nrSpks = 4;
 		for (int i = 0; i < nrSpks; ++i) {
 			float theta = 2.0f * M_PI * float(i) / float(nrSpks);
 			float x = radius * cosf(theta);
@@ -219,7 +259,7 @@ class Gondola {
 		}
 	}
 public:
-	Gondola(Spline* spline) : spline(spline), state(WAIT), speed(0.0f), angle(0.0f) {
+	Gondola(Spline* spline) : spline(spline), state(WAIT), speed(0.0f), angle(0.0f), t(0.01f) {
 		createCircle();
 		createSpokes();
 
@@ -248,19 +288,39 @@ public:
 	void Start() {
 		state = START;
 		speed = 0.0f;
+		t = 0.01f;
+		position = spline->getPoint(t);
 	}
 
 	void Animate(float dt) {
 		if (state == START) {
-			// Simple physics animation
-			speed += 9.81f * dt; // Gravity
-			position += vec3(speed * dt, 0.0f, 0.0f); // Update position
-			angle += speed * dt; // Update angle
+			t += speed * dt;
+			if (t > 1.0f) t = 1.0f;
 
-			// Check if fallen
-			if (position.y < -10.0f) {
+			position = spline->getPoint(t);
+
+			vec3 tangent = spline->getTangent(t);
+			vec3 normal = vec3(-tangent.y, tangent.x, 0.0f);
+			float curvature = spline->getCurvature(t);
+
+			float centripetalAccel = speed * speed * curvature;
+
+			float normalForce = mass * (gravity * normal.y + centripetalAccel);
+
+			// Ha a kényszerero pozitiv, a kerék leesett
+			if (normalForce > 0.0f) {
 				state = FALLEN;
+				return;
 			}
+
+			// Gyorsulás számítása
+			vec3 acceleration = vec3(0.0f, -gravity, 0.0f) + normal * (normalForce / mass);
+
+			// Sebesség frissítése
+			speed += dot(acceleration, tangent) * dt;
+
+			// Szögsebesség frissítése
+			angle += speed * dt / radius;
 		}
 	}
 
@@ -272,9 +332,10 @@ public:
 		mat4 mvpMatrix = mvp * model;
 		prog->setUniform(mvpMatrix, "mvp");
 
+		glBindVertexArray(vao);
+
 		// Draw circle
 		prog->setUniform(vec3(0.0f, 0.0f, 1.0f), "color"); // Blue fill
-		glBindVertexArray(vao);
 		glBindBuffer(GL_ARRAY_BUFFER, vboCirc);
 		glDrawArrays(GL_TRIANGLE_FAN, 0, circVertx.size());
 
@@ -318,6 +379,20 @@ public:
 		printf("Key: %d\n", key);
 		if (key == 32) {
 			gondola->Start();
+		} if (key == 107) {
+			refreshScreen();
+		}
+	}
+
+	void onTimeElapsed(float startTime, float endTime) {
+		static float tend = 0;
+		const float dt = 0.01f; // dt is "infinitesimal"
+		float tstart = tend;
+		tend = (endTime - startTime) / 1000.0f;
+		for (float t = tstart; t < tend; t += dt) {
+			float Dt = fmin(dt, tend - t);
+			gondola->Animate(Dt);
+			refreshScreen();
 		}
 	}
 

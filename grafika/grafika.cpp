@@ -194,7 +194,8 @@ public:
 	bool getalive() {
 		if (ctrlPoints.size() < 2) {
 			return false;
-		} else {
+		}
+		else {
 			return true;
 		}
 	}
@@ -344,7 +345,7 @@ public:
 				time = 0.0f;
 				return;
 			}
-			
+
 			position = spline->getPoint(t);
 			printf("dt: %f; t: %f; position: %f, %f", dt, t, position.x, position.y);
 
@@ -385,7 +386,7 @@ public:
 			float normalForce = mass * (gravity * normal.y + centripetalAccel);
 
 			printf(", nf: %f", normalForce);
-			
+
 			if (normalForce < 0.0f) {
 				printf("\n");
 				state = FALLEN;
@@ -397,12 +398,13 @@ public:
 
 			// SZÖG
 			// angle += - (speed / radius) * (1.0f / acceleration.length()) * 0.001f;
-			angle += - (speed / radius) * dt;
+			angle += -(speed / radius) * dt;
 			printf(", angle: %f\n", angle);
 
 			speed += acceleration.y * dt * dt;
 
-		} else if (state == FALLEN) {
+		}
+		else if (state == FALLEN) {
 			position.y -= 9.81f * time * time;
 			time += 0.005f;
 			printf("Leestem!, pos: %f, %f, t: %f\n", position.x, position.y, t);
@@ -488,7 +490,7 @@ public:
 		}
 		refreshScreen();
 	}*/
-	
+
 	void onTimeElapsed(float tstart, float tend) {
 		const float dt = 0.01; // dt is ”infinitesimal”
 		for (float t = tstart; t < tend; t += dt) {

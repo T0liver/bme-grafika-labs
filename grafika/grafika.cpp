@@ -44,28 +44,26 @@ public:
 	Camera(vec3 center, float width, float height) : center(center), width(width), height(height) {}
 
 	mat4 getViewM() const {
-		return lookAt(center + vec3(0, 0, -1), center, vec3(0, 1, 0));
+		return translate(vec3(-center.x, -center.y, 0));
 	}
 
 	mat4 getProjM() const {
-		return ortho(
-			center.x - width / 2, center.x + width / 2,
-			center.y - height / 2, center.y + height / 2,
-			0.1f, 100.0f);
+		return scale(vec3(2.0f / width, 2.0f / height, 1.0f));
 	}
 
 	mat4 getViewIM() const {
-		return inverse(getViewM());
+		return translate(vec3(center.x, center.y, 0.0f));
 	}
 
 	mat4 getProjIM() const {
-		return inverse(getProjM());
+		return scale(vec3(width / 2.0f, height / 2.0f, 1.0f));
 	}
 
 	vec3 scrToW(const vec2& cords, const vec2& size) const {
-		vec4 viewport = vec4(0, 0, size.x, size.y);
-		vec3 win = vec3(cords, 1.0f);
-		return unProject(win, getViewM(), getProjM(), viewport);
+		float nX = 2.0f * cords.x / size.x - 1;
+		float nY = 1.0f - 2.0f * cords.y / size.y;
+		vec4 vertx = getViewIM() * getProjIM() * vec4(nX, nY, 0, 1);
+		return vec3(vertx.x, -vertx.y, 0.0f);
 	}
 };
 
@@ -83,6 +81,16 @@ class Spline {
 			(t3 - 2.0f * t2 + t) * v0 +
 			(-2.0f * t3 + 3.0f * t2) * p1 +
 			(t3 - t2) * v1;
+		return result;
+	}
+
+	vec3 hermiteDer1(const glm::vec3& p0, const glm::vec3& v0, const glm::vec3& p1, const glm::vec3& v1, float t) {
+		float t2 = t * t;
+
+		glm::vec3 result = (6.0f * t2 - 6.0f * t) * p0 +
+			(3.0f * t2 - 4.0f * t + 1.0f) * v0 +
+			(-6.0f * t2 + 6.0f * t) * p1 +
+			(3.0f * t2 - 2.0f * t) * v1;
 		return result;
 	}
 
@@ -168,6 +176,9 @@ public:
 
 	vec3 getTangent(float t) const {
 		if (crvPoints.empty()) { return vec3(0.0f); }
+		if (fabs(t) >= 1.0f) {
+			return vec3(0.0f);
+		}
 		int i = static_cast<int>(t * (crvPoints.size() - 1));
 		if (i == 0) {
 			return normalize(crvPoints[i + 1] - crvPoints[i]);
@@ -180,8 +191,16 @@ public:
 		}
 	}
 
+	bool getalive() {
+		if (ctrlPoints.size() < 2) {
+			return false;
+		} else {
+			return true;
+		}
+	}
+
 	float getCurvature(float t) const {
-		if (crvPoints.empty()) { return 0.0f; }
+		/*if (crvPoints.empty()) { return 0.0f; }
 		int i = static_cast<int>(t * (crvPoints.size() - 1));
 		vec3 tangent = getTangent(t);
 		vec3 nextTangent;
@@ -200,7 +219,23 @@ public:
 		} else if (i == 0) {
 			return length(dTangent) / length(crvPoints[i + 1] - crvPoints[i]);
 		}
-		return length(dTangent) / length(crvPoints[i + 1] - crvPoints[i - 1]);
+		return length(dTangent) / length(crvPoints[i + 1] - crvPoints[i - 1]);*/
+		if (crvPoints.empty()) return 0.0f;
+		int i = static_cast<int>(t * (crvPoints.size() - 1));
+		if (i < 1 || i >= crvPoints.size() - 1) return 0.0f;
+
+		vec3 p0 = crvPoints[i - 1];
+		vec3 p1 = crvPoints[i];
+		vec3 p2 = crvPoints[i + 1];
+
+		vec3 t0 = p1 - p0;
+		vec3 t1 = p2 - p1;
+
+		vec3 ddt = t1 - t0;
+		float len = length(t1) + length(t0);
+		if (len == 0.0f) return 0.0f;
+
+		return length(ddt) / len;
 	}
 
 	void updateGPU() {
@@ -232,19 +267,19 @@ class Gondola {
 	float mass = 1.0f,
 		radius = 1.0f,
 		gravity = 40.0f;
-	GState state;
+	float time;
 	Spline* spline;
-	unsigned int vao, vboCirc, vboSpks;
+	GState state;
+	unsigned int vaoCirc, vaoSpks, vboCirc, vboSpks;
 	std::vector<vec3> circVertx, spksVertx;
 
 	void createCircle() {
 		const int nrSegs = 100;
-		const float radius = 1.0f;
 		for (int i = 0; i <= nrSegs; ++i) {
 			float theta = 2.0f * M_PI * float(i) / float(nrSegs);
 			float x = radius * cosf(theta);
 			float y = radius * sinf(theta);
-			circVertx.push_back(vec3(x, y, 0.0f));
+			circVertx.push_back(vec3(x, y, 1.0f));
 		}
 	}
 
@@ -258,19 +293,28 @@ class Gondola {
 			spksVertx.push_back(vec3(x, y, 0.0f));
 		}
 	}
+
+	float getVecLength(vec3 v) const {
+		return sqrtf(v.x * v.x + v.y * v.y);
+	}
 public:
+
 	Gondola(Spline* spline) : spline(spline), state(WAIT), speed(0.0f), angle(0.0f), t(0.01f) {
 		createCircle();
 		createSpokes();
 
-		glGenVertexArrays(1, &vao);
-		glBindVertexArray(vao);
+		glGenVertexArrays(1, &vaoCirc);
+		glBindVertexArray(vaoCirc);
+
 
 		glGenBuffers(1, &vboCirc);
 		glBindBuffer(GL_ARRAY_BUFFER, vboCirc);
 		glBufferData(GL_ARRAY_BUFFER, circVertx.size() * sizeof(vec3), circVertx.data(), GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+		glGenVertexArrays(1, &vaoSpks);
+		glBindVertexArray(vaoSpks);
 
 		glGenBuffers(1, &vboSpks);
 		glBindBuffer(GL_ARRAY_BUFFER, vboSpks);
@@ -282,7 +326,8 @@ public:
 	~Gondola() {
 		glDeleteBuffers(1, &vboCirc);
 		glDeleteBuffers(1, &vboSpks);
-		glDeleteVertexArrays(1, &vao);
+		glDeleteVertexArrays(1, &vaoCirc);
+		glDeleteVertexArrays(1, &vaoSpks);
 	}
 
 	void Start() {
@@ -294,54 +339,101 @@ public:
 
 	void Animate(float dt) {
 		if (state == START) {
-			t += speed * dt;
-			if (t > 1.0f) t = 1.0f;
-
-			position = spline->getPoint(t);
-
-			vec3 tangent = spline->getTangent(t);
-			vec3 normal = vec3(-tangent.y, tangent.x, 0.0f);
-			float curvature = spline->getCurvature(t);
-
-			float centripetalAccel = speed * speed * curvature;
-
-			float normalForce = mass * (gravity * normal.y + centripetalAccel);
-
-			// Ha a kényszerero pozitiv, a kerék leesett
-			if (normalForce > 0.0f) {
+			if (isnan(speed)) {
 				state = FALLEN;
+				time = 0.0f;
+				return;
+			}
+			
+			position = spline->getPoint(t);
+			printf("dt: %f; t: %f; position: %f, %f", dt, t, position.x, position.y);
+
+			float y0 = spline->getPoint(0.0f).y;
+			float y = position.y;
+			if (y0 < y) {
+				t = 0.01f;
+				speed = 0.0f;
+				dt = 0.0f;
+				return;
+			}
+			speed += sqrtf(2 * gravity * (y0 - y)) * 0.0006f;
+
+			printf(", v: %f", speed);
+
+			t += speed * dt;
+
+			if (fabs(t) >= 1.0f) {
+				state = FALLEN;
+				printf("oh\n");
+				time = dt;
 				return;
 			}
 
-			// Gyorsulás számítása
+			vec3 tangent = spline->getTangent(t);
+			tangent = normalize(tangent);
+
+			vec3 normal = vec3(-tangent.y, tangent.x, 0.0f);
+			normal = normalize(normal);
+
+			float curvature = spline->getCurvature(t);
+
+			// float centripetalAccel = speed * speed * curvature;
+			float centripetalAccel = speed * speed * curvature;
+
+			// float normalForce = mass * (gravity * normal.y + centripetalAccel);
+			// float normalForce = gravity * cosf(centripetalAccel) -  speed / radius;
+			float normalForce = mass * (gravity * normal.y + centripetalAccel);
+
+			printf(", nf: %f", normalForce);
+			
+			if (normalForce < 0.0f) {
+				printf("\n");
+				state = FALLEN;
+				time = 0.0f;
+				return;
+			}
+
 			vec3 acceleration = vec3(0.0f, -gravity, 0.0f) + normal * (normalForce / mass);
 
-			// Sebesség frissítése
-			speed += dot(acceleration, tangent) * dt;
+			// SZÖG
+			// angle += - (speed / radius) * (1.0f / acceleration.length()) * 0.001f;
+			angle += - (speed / radius) * dt;
+			printf(", angle: %f\n", angle);
 
-			// Szögsebesség frissítése
-			angle += speed * dt / radius;
+			speed += acceleration.y * dt * dt;
+
+		} else if (state == FALLEN) {
+			position.y -= 9.81f * time * time;
+			time += 0.005f;
+			printf("Leestem!, pos: %f, %f, t: %f\n", position.x, position.y, t);
+		}
+		else if (state == WAIT) {
+			printf("So am I still waiting\n");
 		}
 	}
 
 	void Draw(GPUProgram* prog, const mat4& mvp) {
 		if (state == WAIT) { return; }
 		prog->Use();
-		Animate(0.01f);
-		mat4 model = translate(mat4(1.0f), position) * rotate(mat4(1.0f), angle, vec3(0.0f, 0.0f, 1.0f));
+		vec3 tangent = spline->getTangent(t);
+		vec3 T = tangent / getVecLength(tangent);
+		vec3 normal = vec3(-T.y, T.x, 0.0f);
+		mat4 model = translate(position + normal + 0.08f) * rotate(angle, vec3(0.0f, 0.0f, 1.0f));
 		mat4 mvpMatrix = mvp * model;
 		prog->setUniform(mvpMatrix, "mvp");
 
-		glBindVertexArray(vao);
-
 		// Draw circle
 		prog->setUniform(vec3(0.0f, 0.0f, 1.0f), "color"); // Blue fill
-		glBindBuffer(GL_ARRAY_BUFFER, vboCirc);
+		glBindVertexArray(vaoCirc);
 		glDrawArrays(GL_TRIANGLE_FAN, 0, circVertx.size());
+
+		prog->setUniform(vec3(1.0f, 1.0f, 1.0f), "color"); // White fill
+		glBindVertexArray(vaoCirc);
+		glDrawArrays(GL_LINE_STRIP, 0, circVertx.size());
 
 		// Draw spokes
 		prog->setUniform(vec3(1.0f, 1.0f, 1.0f), "color"); // White spokes
-		glBindBuffer(GL_ARRAY_BUFFER, vboSpks);
+		glBindVertexArray(vaoSpks);
 		glDrawArrays(GL_LINES, 0, spksVertx.size());
 	}
 
@@ -378,13 +470,14 @@ public:
 	void onKeyboard(int key) {
 		printf("Key: %d\n", key);
 		if (key == 32) {
-			gondola->Start();
-		} if (key == 107) {
-			refreshScreen();
+			if (spline->getalive()) {
+				gondola->Start();
+			}
 		}
 	}
 
-	void onTimeElapsed(float startTime, float endTime) {
+	/*void onTimeElapsed(float startTime, float endTime) {
+		printf("c\n");
 		static float tend = 0;
 		const float dt = 0.01f; // dt is "infinitesimal"
 		float tstart = tend;
@@ -392,8 +485,17 @@ public:
 		for (float t = tstart; t < tend; t += dt) {
 			float Dt = fmin(dt, tend - t);
 			gondola->Animate(Dt);
-			refreshScreen();
 		}
+		refreshScreen();
+	}*/
+	
+	void onTimeElapsed(float tstart, float tend) {
+		const float dt = 0.01; // dt is ”infinitesimal”
+		for (float t = tstart; t < tend; t += dt) {
+			float Dt = fmin(dt, tend - t);
+			gondola->Animate(Dt);
+		}
+		refreshScreen();
 	}
 
 	// Ablak újrarajzolás

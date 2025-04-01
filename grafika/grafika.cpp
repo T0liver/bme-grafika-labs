@@ -61,6 +61,26 @@ public:
 	}
 };
 
+class Object : public Geometry<vec2> {
+protected:
+	vec2 position;
+public:
+	virtual std::vector<vec2> GenVertexData() = 0;
+
+    void update() {
+		Vtx() = GenVertexData();
+		this->updateGPU();
+    }
+
+	void Draw(GPUProgram* gpuProgram, int type, vec3 color, Camera& camera) {
+		// mat4 M = translate(vec3(position.x, position.y, 0.0f)) * rotate(phi, vec3(0.0f, 0.0f, 1.0f)) * scale(scaling);
+		mat4 M = translate(vec3(position.x, position.y, 0.0f)); // kellenek ezek? ^
+		mat4 MVP = camera.getProjM() * camera.getViewM() * M;
+		gpuProgram->setUniform(MVP, "MVP");
+		__super::Draw(gpuProgram, type, color);
+	}
+};
+
 class Merkator : public glApp {
 	GPUProgram* gpuProgram;	   // csúcspont és pixel árnyalók
 public:

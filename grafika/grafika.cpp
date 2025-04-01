@@ -271,6 +271,7 @@ class Gondola {
 	float time;
 	Spline* spline;
 	GState state;
+	bool forward = true;
 	unsigned int vaoCirc, vaoSpks, vboCirc, vboSpks;
 	std::vector<vec3> circVertx, spksVertx;
 
@@ -335,6 +336,12 @@ public:
 		state = START;
 		speed = 0.0f;
 		t = 0.01f;
+		if (!forward) {
+			state = FALLEN;
+			time = 0.0f;
+			return;
+		}
+		forward = true;
 		position = spline->getPoint(t);
 	}
 
@@ -352,12 +359,13 @@ public:
 			float y0 = spline->getPoint(0.0f).y;
 			float y = position.y;
 			if (y0 < y) {
-				t = 0.01f;
-				speed = 0.0f;
+				printf("\n");
+				Start();
+				forward = false;
 				dt = 0.0f;
 				return;
 			}
-			speed += sqrtf(2 * gravity * (y0 - y)) * 0.0006f;
+			speed += sqrtf(2 * gravity * (y0 - y)) * 0.00056f;
 
 			printf(", v: %f", speed);
 
@@ -378,11 +386,14 @@ public:
 
 			float curvature = spline->getCurvature(t);
 
-			// float centripetalAccel = speed * speed * curvature;
+			printf(", curv: %f", curvature);
+
 			float centripetalAccel = speed * speed * curvature;
 
-			// float normalForce = mass * (gravity * normal.y + centripetalAccel);
-			// float normalForce = gravity * cosf(centripetalAccel) -  speed / radius;
+			if (curvature <= 0.01f) {
+				t += 0.01f;
+			}
+
 			float normalForce = mass * (gravity * normal.y + centripetalAccel);
 
 			printf(", nf: %f", normalForce);
@@ -397,8 +408,7 @@ public:
 			vec3 acceleration = vec3(0.0f, -gravity, 0.0f) + normal * (normalForce / mass);
 
 			// SZÖG
-			// angle += - (speed / radius) * (1.0f / acceleration.length()) * 0.001f;
-			angle += -(speed / radius) * dt;
+			angle += -(speed / radius) * dt * 6.0f;
 			printf(", angle: %f\n", angle);
 
 			speed += acceleration.y * dt * dt;
@@ -477,19 +487,6 @@ public:
 			}
 		}
 	}
-
-	/*void onTimeElapsed(float startTime, float endTime) {
-		printf("c\n");
-		static float tend = 0;
-		const float dt = 0.01f; // dt is "infinitesimal"
-		float tstart = tend;
-		tend = (endTime - startTime) / 1000.0f;
-		for (float t = tstart; t < tend; t += dt) {
-			float Dt = fmin(dt, tend - t);
-			gondola->Animate(Dt);
-		}
-		refreshScreen();
-	}*/
 
 	void onTimeElapsed(float tstart, float tend) {
 		const float dt = 0.01; // dt is ”infinitesimal”

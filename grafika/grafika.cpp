@@ -1,17 +1,17 @@
 //=============================================================================================
-// Alap grafika kód: A framework.h osztályait felhasználó megoldás
+// Harmadik házi feladat: Mercator térkép
 //=============================================================================================
 #include "framework.h"
 
 // csúcspont árnyaló
 const char* vertSource = R"(
-	#version 330				
-    precision highp float;
+	#version 330
+	precision highp float;
 
 	layout(location = 0) in vec2 cP;	// 0. bemeneti regiszter
-
+	uniform mat4 mvp;		// modelnézettér projekciós transzformáció
 	void main() {
-		gl_Position = vec4(cP.x, cP.y, 0, 1); 	// bemenet már normalizált eszközkoordinátákban
+		gl_Position = mvp * vec4(cP.x, cP.y, 0, 1); 	// bemenet már normalizált eszközkoordinátákban
 	}
 )";
 
@@ -30,10 +30,41 @@ const char* fragSource = R"(
 
 const int winWidth = 600, winHeight = 600;
 
-class GrafikaApp : public glApp {
+// Camera class, mert gondolom kene ilyen is...
+class Camera {
+	vec2 center;
+	float width, height;
+public:
+	Camera(vec2 center, float width, float height) : center(center), width(width), height(height) {}
+
+	mat4 getViewM() const {
+		return translate(vec3(-center.x, -center.y, 0));
+	}
+
+	mat4 getProjM() const {
+		return scale(vec3(2.0f / width, 2.0f / height, 1.0f));
+	}
+
+	mat4 getViewIM() const {
+		return translate(vec3(center.x, center.y, 0.0f));
+	}
+
+	mat4 getProjIM() const {
+		return scale(vec3(width / 2.0f, height / 2.0f, 1.0f));
+	}
+
+	vec2 scrToW(const vec2& cords, const vec2& size) const {
+		float nX = 2.0f * cords.x / size.x - 1;
+		float nY = 1.0f - 2.0f * cords.y / size.y;
+		vec4 vertx = getViewIM() * getProjIM() * vec4(nX, nY, 0, 1);
+		return vec3(vertx.x, -vertx.y, 0.0f);
+	}
+};
+
+class Merkator : public glApp {
 	GPUProgram* gpuProgram;	   // csúcspont és pixel árnyalók
 public:
-	GrafikaApp() : glApp("Grafika") {}
+	Merkator() : glApp("Merkator térkép") {}
 
 	// Inicializáció, 
 	void onInitialization() {
@@ -48,5 +79,5 @@ public:
 	}
 };
 
-GrafikaApp app;
+Merkator app;
 

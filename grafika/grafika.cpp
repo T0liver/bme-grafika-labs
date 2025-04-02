@@ -67,7 +67,122 @@ const char* fragSource = R"(
 	}
 )";
 
+// 85 fok = 1,4835298642 rad
+const float Mercator = logf(atan(M_PI / 4.0f + 1.4835298642f * M_PI / 2.0f));
+
+const vec2 ncdToMerc(const vec2 cords) {
+    float x = cords.x * M_PI;
+	float y = cords.y * Mercator;
+	return vec2(x, y);
+}
+
+const vec2 mercToLongLat(const vec2 cords) {
+	float longi = cords.x;
+	float lati = 2.0f * atan(exp(cords.y)) - M_PI / 2.0f;
+	return vec2(longi, lati);
+}
+
+const vec3 longlatToDesc(const vec2 cords, const float R) {
+	float x = R * cosf(cords.y) * cosf(cords.x);
+	float y = R * cosf(cords.y) * sinf(cords.x);
+	float z = R * sinf(cords.y);
+	return vec3(x, y, z);
+}
+/*
+const vec3 ncdToDesc(const vec2 cords) {
+	float x = cords.x * M_PI;
+	float y = cords.y * Mercator;
+	float longi = x;
+	float lati = 2.0f * atan(exp(y)) - M_PI / 2.0f;
+	float dX = acos(cords.y) * acos(cords.x);
+	float dY = acos(cords.y) * asin(cords.x);
+	float dZ = asin(cords.y);
+	return vec3(dX, dY, dZ);
+}
+
+const vec2 descToNcd(const vec3 cords) {
+	float lat = asin(cords.z / 1.0f);
+	float lon = atan2(cords.y, cords.x);
+	float mX = lon;
+	float mY = logf(atan( M_PI / 4 + lat / 2.0f));
+
+	float x = logf(atan(M_PI / 4.0f + lon * M_PI / 2.0f));
+	float y = logf(atan(M_PI / 4.0f + lat * M_PI / 2.0f));
+
+	return vec2(x, y);
+}
+*/
+
+const vec3 ncdToDesc(const vec2 cords) {
+	float longi = cords.x * M_PI;  // Norm. x -> [-π, π]
+	float lati = 2.0f * atan(exp(cords.y * M_PI)) - M_PI / 2.0f;  // Mercator y -> [-π/2, π/2]
+
+	float x = cos(lati) * cos(longi);
+	float y = cos(lati) * sin(longi);
+	float z = sin(lati);
+
+	return vec3(x, y, z);
+}
+
+const vec2 descToNcd(const vec3 cords) {
+	float lat = asin(cords.z);  // -1 ≤ z ≤ 1 → -π/2 ≤ lat ≤ π/2
+	float lon = atan2(cords.y, cords.x);  // [-π, π]
+
+	float x = lon / M_PI;  // Norm. x -> [-1,1]
+	float y = log(tan(M_PI / 4.0f + lat / 2.0f)) / M_PI;  // Mercator norm. y
+
+	return vec2(x, y);
+}
+
+const float getAngle(const vec3 start, const vec3 end) {
+	return acos(dot(start, end));
+}
+
+const float getDistance(const float angle) {
+	return angle * 6371.0f;
+}
+
+std::vector<vec2> interpolate(vec2 startNCD, vec2 endNCD) {
+	std::vector<vec2> path;
+
+	// 1. Kezdő- és végpont átalakítása Descartes-koordinátákba
+	vec3 start = normalize(ncdToDesc(startNCD));
+	vec3 end = normalize(ncdToDesc(endNCD));
+
+	// 2. Szög kiszámítása
+	float angle = getAngle(start, end);
+	printf("Distance: %.0f km\n", getDistance(angle));
+
+	// 3. Interpoláció és visszaalakítás
+	for (int i = 0; i < 100; i++) {
+		float t = float(i) / 99.0f;
+		float A = sin((1 - t) * angle) / sin(angle);
+		float B = sin(t * angle) / sin(angle);
+
+		vec3 vertex = A * start + B * end;
+
+		// 4. Cartesian -> Longitude/Latitude
+		float lat = asin(vertex.z);
+		float lon = atan2(vertex.y, vertex.x);
+
+		// 5. Longitude/Latitude -> Mercator
+		float X = lon;
+		float Y = log(tan(M_PI / 4.0f + lat / 2.0f));
+
+		// 6. Mercator -> Screen koordináták
+		float screen_x = X / M_PI;
+		float screen_y = Y / Mercator;
+
+		path.push_back(vec2(screen_x, screen_y));
+	}
+
+	return path;
+}
+
+
 const int winWidth = 600, winHeight = 600;
+
+const vec2 scrN = vec2(float(winWidth) / 2.0f, float(winHeight + 200 ) / 2.0f);
 
 const int lineWidth = 3, pointSize = 10;
 
@@ -97,7 +212,7 @@ public:
 		float nX = 2.0f * cords.x / size.x - 1;
 		float nY = 1.0f - 2.0f * cords.y / size.y;
 		vec4 vertx = getProjIM() * getViewIM() * vec4(nX, nY, 0, 1);
-		return vec3(vertx.x, vertx.y, 0.0f);
+		return vec2(vertx.x, vertx.y);
 	}
 };
 
@@ -156,6 +271,9 @@ public:
 
 		std::vector<vec3> image = decodeTexture(mapImg, 64, 64);
 		
+		// --------------------------------------------------------------------------------------
+		// TODO: jporta szerint erre nincs konstruktor, de discordon valaki talált erre megoldást
+		// --------------------------------------------------------------------------------------
 		texture = new Texture(64, 64, image);
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -225,9 +343,39 @@ public:
 		update();
 	}
 
+	const size_t size() {
+		return vtx.size();
+	}
+
+	const std::vector<vec2>& Vtx() {
+		return vtx;
+	}
+
 	void Draw(GPUProgram* gpuProgram, Camera* camera) {
 		mat4 mvp = camera->getProjM() * camera->getViewM();
 		Object::Draw(gpuProgram, GL_POINTS, vec3(1.0f, 0.0f, 0.0f), mvp);
+	}
+};
+
+class Road : Object {
+public:
+	Road() : Object() {}
+
+	void add(const vec2 p) {
+		vtx.push_back(p);
+		update();
+	}
+
+	void addPath(const std::vector<vec2>& path) {
+		for (size_t i = 0; i < path.size(); i++) {
+			vtx.push_back(path.at(i) * vec2(300.0f, 30.0f));
+		}
+		update();
+	}
+
+	void Draw(GPUProgram* gpuProgram, Camera* camera) {
+		mat4 mvp = camera->getProjM() * camera->getViewM();
+		Object::Draw(gpuProgram, GL_LINE_STRIP, vec3(1.0f, 1.0f, 0.0f), mvp);
 	}
 };
 
@@ -235,6 +383,7 @@ class Merkator : public glApp {
 	GPUProgram* gpuProgram;
 	Map* map;
 	Stations* stations;
+	Road* road;
 	Camera* camera;
 	int currenttime = 0;
 public:
@@ -243,11 +392,14 @@ public:
 	// Inicializáció, 
 	void onInitialization() {
 		gpuProgram = new GPUProgram(vertSource, fragSource);
-		map = new Map();
-		stations = new Stations();
-		camera = new Camera(vec2(0.0f, 0.0f), 600, 800);
+		
 		glPointSize(pointSize);
 		glLineWidth(lineWidth);
+
+		map = new Map();
+		stations = new Stations();
+		road = new Road();
+		camera = new Camera(vec2(0.0f, 0.0f), winWidth, winHeight);
 	}
 
 	// Ablak újrarajzolás
@@ -257,6 +409,7 @@ public:
 		glViewport(0, 0, winWidth, winHeight);
 
 		map->Draw(gpuProgram, camera);
+		road->Draw(gpuProgram, camera);
 		stations->Draw(gpuProgram, camera);
 	}
 
@@ -267,9 +420,22 @@ public:
 
 			vec2 wPos = camera->scrToW(vec2(pX, pY), vec2(winWidth, winHeight));
 
-			printf("Clicked: %d, %d\n", pX, pY);
 			stations->add(wPos);
-			printf("Added: %f, %f\n", wPos.x, wPos.y);
+			printf("Ncd: %f, %f\n", wPos.x / 300.0f, wPos.y / 300.0f);
+			vec3 desc = ncdToDesc(vec2(nX, nY));
+			printf("Cart: %f, %f, %f\n", desc.x, desc.y, desc.z);
+			vec2 ret = descToNcd(desc);
+			printf("Re ncd: %f, %f\n", ret.x, ret.y);
+
+			if (stations->size() >= 2) {
+				vec2 llast = stations->Vtx().at(stations->size() - 2);
+				vec2 last = stations->Vtx().at(stations->size() - 1);
+				// -----------------------------------------------------
+				// TODO: jporta nem szereti a vec osztást, ezt megoldani
+				// -----------------------------------------------------
+				road->addPath(interpolate(llast / scrN, last / scrN));
+			}
+
 			refreshScreen();
 		}
 	}

@@ -36,15 +36,34 @@ const char* fragSource = R"(
 	uniform vec3 color;
 	uniform sampler2D textureUnit;
 
+	uniform int time;
+
 	in vec2 texCoord;
 	out vec4 fragmentColor;
+
+	const float axialTilt = 23.0;
+	const float PI = 3.14159265359;
 
 	void main() {
 		if (point) {
 			fragmentColor = vec4(color, 1);
-		} else {
-			fragmentColor = texture(textureUnit, texCoord);
+			return;
 		}
+
+		vec4 texColor = texture(textureUnit, texCoord);
+		float latitude = (-texCoord.y * 170.0) - 85.0;
+		float longitude = (texCoord.x * 360.0) - 180.0;
+
+	    float declination = axialTilt * cos(2.0 * PI * (time / 24.0));
+	    float localHourAngle = (longitude / 180.0) * PI + (time / 12.0) * PI;
+	    float sunAltitude = sin(radians(latitude)) * sin(radians(declination)) +
+	                        cos(radians(latitude)) * cos(radians(declination)) * cos(localHourAngle);
+
+		if (sunAltitude < 0.0f) {
+			texColor.rgb *= 0.5;
+		}
+
+		fragmentColor = texColor;
 	}
 )";
 
@@ -217,6 +236,7 @@ class Merkator : public glApp {
 	Map* map;
 	Stations* stations;
 	Camera* camera;
+	int currenttime = 0;
 public:
 	Merkator() : glApp("Merkator térkép") {}
 
@@ -250,6 +270,14 @@ public:
 			printf("Clicked: %d, %d\n", pX, pY);
 			stations->add(wPos);
 			printf("Added: %f, %f\n", wPos.x, wPos.y);
+			refreshScreen();
+		}
+	}
+
+	void onKeyboard(int key) {
+		if (key == 'n') {
+			currenttime = 0 ? currenttime >= 24 : currenttime + 1;
+			gpuProgram->setUniform(currenttime, "time");
 			refreshScreen();
 		}
 	}

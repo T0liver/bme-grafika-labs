@@ -27,6 +27,9 @@ const char* vertSource = R"(
 	}
 )";
 
+// axialTilt : 	Próbáld meg beszorozni a tengelyt szögét 2-vel.
+//				Ne kérdezd miért, nekem is így nézett ki előtte az árnyék, az valamiért megoldotta
+
 // pixel árnyaló
 const char* fragSource = R"(
 	#version 330
@@ -41,7 +44,7 @@ const char* fragSource = R"(
 	in vec2 texCoord;
 	out vec4 fragmentColor;
 
-	const float axialTilt = 23.0;
+	const float axialTilt = 46.0f;
 	const float PI = 3.14159265359;
 
 	void main() {
@@ -67,8 +70,14 @@ const char* fragSource = R"(
 	}
 )";
 
-// 85 fok = 1,4835298642 rad
-const float Mercator = logf(atan(M_PI / 4.0f + 1.4835298642f * M_PI / 2.0f));
+// 85 fok = 1.4835298642 rad
+// 85 fok = 0.4722222222 pi rad
+const float Mercator = logf(atanf(M_PI / 4.0f + 1.4835298642f * M_PI / 2.0f));
+// const float Mercator = logf(atanf(M_PI / 4.0f + 85.0f / 2.0f));
+
+const float getMercator(const float angle) {
+	return logf(atanf(M_PI / 4.0f + angle * M_PI / 180 / 2.0f));
+}
 
 const vec2 ncdToMerc(const vec2 cords) {
     float x = cords.x * M_PI;
@@ -132,18 +141,18 @@ std::vector<vec2> interpolate(vec2 startNCD, vec2 endNCD) {
 	// 3. Interpoláció és visszaalakítás
 	for (int i = 0; i < 100; i++) {
 		float t = float(i) / 99.0f;
-		float A = sin((1 - t) * angle) / sin(angle);
-		float B = sin(t * angle) / sin(angle);
+		float A = sinf((1 - t) * angle) / sinf(angle);
+		float B = sinf(t * angle) / sinf(angle);
 
 		vec3 vertex = A * start + B * end;
 
 		// 4. Cartesian -> Longitude/Latitude
-		float lat = asin(vertex.z);
-		float lon = atan2(vertex.y, vertex.x);
+		float lat = asinf(vertex.z / 1.02f);
+		float lon = atan2f(vertex.y, vertex.x);
 
 		// 5. Longitude/Latitude -> Mercator
 		float X = lon;
-		float Y = log(tan(M_PI / 4.0f + lat / 2.0f));
+		float Y = logf(tanf(M_PI / 4.0f + lat / 2.0f));
 
 		// 6. Mercator -> Screen koordináták
 		float screen_x = X / M_PI;
@@ -374,6 +383,19 @@ public:
 		stations = new Stations();
 		road = new Road();
 		camera = new Camera(vec2(0.0f, 0.0f), winWidth, winHeight);
+
+		// adding the cordinates and the roads based on jporta input
+		
+		/*stations->add(vec2(52.9999f, 126.0f));
+		stations->add(vec2(-195.9999f, 99.9999f));
+		road->addPath(interpolate(vec2(0.1767f, 0.315f), vec2(-0.6533, 0.25f)));
+		stations->add(vec2(-89.0f, -20.0f));
+		road->addPath(interpolate(vec2(-0.6533, 0.25f), vec2(-0.2967f, -0.05f)));
+		stations->add(vec2(204.9998f, 94.0f));
+		road->addPath(interpolate(vec2(-0.2967f, -0.05f), vec2(0.6833f, 0.235f)));
+		stations->add(vec2(53.9998f, 125.0f));
+		road->addPath(interpolate(vec2(0.6833f, 0.235f), vec2(0.18f, 0.3125f)));
+		*/
 	}
 
 	// Ablak újrarajzolás
@@ -395,16 +417,13 @@ public:
 			vec2 wPos = camera->scrToW(vec2(pX, pY), vec2(winWidth, winHeight));
 
 			stations->add(wPos);
-			printf("Ncd: %f, %f\n", wPos.x / 300.0f, wPos.y / 300.0f);
-			vec3 desc = ncdToDesc(vec2(nX, nY));
-			printf("Cart: %f, %f, %f\n", desc.x, desc.y, desc.z);
-			vec2 ret = descToNcd(desc);
-			printf("Re ncd: %f, %f\n", ret.x, ret.y);
+			printf("Ncd: %f, %f\n", wPos.x, wPos.y);
 
 			if (stations->size() >= 2) {
 				vec2 llast = stations->Vtx().at(stations->size() - 2);
 				vec2 last = stations->Vtx().at(stations->size() - 1);
 				road->addPath(interpolate(vec2(llast.x / scrN.x, llast.y / scrN.y), vec2(last.x / scrN.x, last.y / scrN.y)));
+				printf("Path: (%f, %f) -> (%f, %f)\n", llast.x / scrN.x, llast.y / scrN.y, last.x / scrN.x, last.y / scrN.y);
 			}
 
 			refreshScreen();

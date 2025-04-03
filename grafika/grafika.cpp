@@ -88,30 +88,6 @@ const vec3 longlatToDesc(const vec2 cords, const float R) {
 	float z = R * sinf(cords.y);
 	return vec3(x, y, z);
 }
-/*
-const vec3 ncdToDesc(const vec2 cords) {
-	float x = cords.x * M_PI;
-	float y = cords.y * Mercator;
-	float longi = x;
-	float lati = 2.0f * atan(exp(y)) - M_PI / 2.0f;
-	float dX = acos(cords.y) * acos(cords.x);
-	float dY = acos(cords.y) * asin(cords.x);
-	float dZ = asin(cords.y);
-	return vec3(dX, dY, dZ);
-}
-
-const vec2 descToNcd(const vec3 cords) {
-	float lat = asin(cords.z / 1.0f);
-	float lon = atan2(cords.y, cords.x);
-	float mX = lon;
-	float mY = logf(atan( M_PI / 4 + lat / 2.0f));
-
-	float x = logf(atan(M_PI / 4.0f + lon * M_PI / 2.0f));
-	float y = logf(atan(M_PI / 4.0f + lat * M_PI / 2.0f));
-
-	return vec2(x, y);
-}
-*/
 
 const vec3 ncdToDesc(const vec2 cords) {
 	float longi = cords.x * M_PI;  // Norm. x -> [-π, π]
@@ -271,11 +247,9 @@ public:
 
 		std::vector<vec3> image = decodeTexture(mapImg, 64, 64);
 		
-		// --------------------------------------------------------------------------------------
-		// TODO: jporta szerint erre nincs konstruktor, de discordon valaki talált erre megoldást
-		// --------------------------------------------------------------------------------------
-		texture = new Texture(64, 64, image);
-
+		texture = new Texture(64, 64);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 64, 64, 0, GL_RGB, GL_FLOAT, &image[0]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 		glGenVertexArrays(1, &vao);
@@ -430,10 +404,7 @@ public:
 			if (stations->size() >= 2) {
 				vec2 llast = stations->Vtx().at(stations->size() - 2);
 				vec2 last = stations->Vtx().at(stations->size() - 1);
-				// -----------------------------------------------------
-				// TODO: jporta nem szereti a vec osztást, ezt megoldani
-				// -----------------------------------------------------
-				road->addPath(interpolate(llast / scrN, last / scrN));
+				road->addPath(interpolate(vec2(llast.x / scrN.x, llast.y / scrN.y), vec2(last.x / scrN.x, last.y / scrN.y)));
 			}
 
 			refreshScreen();

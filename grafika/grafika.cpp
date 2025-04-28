@@ -108,6 +108,55 @@ public:
 	}
 };
 
+class Cylinder : public Intersectable {
+	vec3 base, axis;
+	float radius, height;
+public:
+	Cylinder(vec3 _base, vec3 _axis, float _radius, float _height, Material* _material) {
+		base = _base;
+		axis = normalize(_axis);
+		radius = _radius;
+		height = _height;
+		material = _material;
+	}
+
+	Hit intersect(const Ray& ray) override {
+		Hit hit;
+
+		vec3 d = ray.dir;
+		vec3 m = ray.start - base;
+		vec3 n = axis;
+
+		float md = dot(m, d);
+		float nd = dot(n, d);
+		float mn = dot(m, n);
+		float dd = dot(d, d);
+		float nn = dot(n, n);
+		float a = dd - nd * nd;
+		float k = dot(m, m) - radius * radius;
+		float c = k - mn * mn;
+		if (abs(a) < 1e-6f) return hit;
+
+		float b = dd * mn - nd * md;
+		float discr = b * b - a * c;
+		if (discr < 0) return hit;
+
+		float t = (-b - sqrt(discr)) / a;
+		if (t < 0) return hit;
+
+		vec3 p = ray.start + t * d;
+		float h = dot(p - base, n);
+		if (h < 0 || h > height) return hit;
+		
+		hit.t = t;
+		hit.position = p;
+		vec3 outward_normal = normalize((p - base) - n * h);
+		hit.normal = outward_normal;
+		hit.material = material;
+		return hit;
+	}
+};
+
 // TODO: Az objects változót tuti máshonnan fogja megkani, de egyenlőre maradjon így
 Hit firstIntersect(Ray ray, std::vector<Intersectable*>& objects) {  
    Hit bestHit;  

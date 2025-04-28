@@ -157,6 +157,58 @@ public:
 	}
 };
 
+class Cone : Intersectable {
+	vec3 base, axis;
+	float angle, height;
+public:
+	Cone(vec3 _base, vec3 _axis, float _angle, float _height, Material* _material) {
+		base = _base;
+		axis = normalize(_axis);
+		angle = _angle;
+		height = _height;
+		material = _material;
+	}
+
+	Hit intersect(const Ray& ray) override {
+		Hit hit;
+
+		vec3 v = ray.dir;
+		vec3 co = ray.start - base;
+		float cosTheta = cos(angle);
+		float cosTheta2 = cosTheta * cosTheta;
+
+		float va = dot(v, axis);
+		float co_a = dot(co, axis);
+		float A = va * va - cosTheta2;
+		float B = 2 * (va * co_a - dot(v, co) * cosTheta2);
+		float C = co_a * co_a - dot(co, co) * cosTheta2;
+		float discr = B * B - 4 * A * C;
+		if (discr < 0) return hit;
+
+		float sqrtDiscr = sqrt(discr);
+		float t1 = (-B - sqrtDiscr) / (2 * A);
+		float t2 = (-B + sqrtDiscr) / (2 * A);
+		float t = (t1 > 0) ? t1 : (t2 > 0) ? t2 : -1;
+		if (t < 0) return hit;
+
+		vec3 p = ray.start + t * ray.dir; // Metszéspont
+		vec3 baseToP = p - base;
+		float heightAlongAxis = dot(baseToP, axis);
+		if (heightAlongAxis < 0 || heightAlongAxis > height)
+			return hit;
+
+		vec3 n = normalize(
+			baseToP - axis * (length(baseToP) / cosTheta)
+		);
+
+		hit.t = t;
+		hit.position = p;
+		hit.normal = n;
+		hit.material = material;
+		return hit;
+	}
+};
+
 // TODO: Az objects változót tuti máshonnan fogja megkani, de egyenlőre maradjon így
 Hit firstIntersect(Ray ray, std::vector<Intersectable*>& objects) {  
    Hit bestHit;  

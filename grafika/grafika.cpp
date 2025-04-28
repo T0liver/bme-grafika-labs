@@ -74,6 +74,40 @@ public:
 	}
 };
 
+class Plane : public Intersectable {
+	vec3 normal, center;
+	float size;
+public:
+	Plane(vec3 _normal, vec3 _center, float _size, Material* _material)
+		: normal(vec3(0.0f, 1.0f, 0.0f)), center(_center), size(_size) {
+		material = _material;
+	}
+
+	Hit intersect(const Ray& ray) override {
+		Hit hit;
+
+		if (fabs(dot(ray.dir, normal)) < 1e-6f)
+			return hit;
+
+		float t = dot(center - ray.start, normal) / dot(ray.dir, normal);
+		if (t < 0)
+			return hit;
+
+		vec3 p = ray.start + ray.dir * t;
+
+		float halfSize = size / 2.0f;
+		if (p.x < center.x - halfSize || p.x > center.x + halfSize ||
+			p.z < center.z - halfSize || p.z > center.z + halfSize)
+			return hit;
+
+		hit.t = t;
+		hit.position = p;
+		hit.normal = normal;
+		hit.material = material;
+		return hit;
+	}
+};
+
 // TODO: Az objects változót tuti máshonnan fogja megkani, de egyenlőre maradjon így
 Hit firstIntersect(Ray ray, std::vector<Intersectable*>& objects) {  
    Hit bestHit;  

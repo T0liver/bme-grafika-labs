@@ -3,6 +3,26 @@
 const int windowWidth = 600, windowHeight = 600;
 const float Epsilon = 0.0001f;
 
+const char* vertexSource = R"(
+	#version 330
+	layout(location = 0) in vec2 cVertexPosition;
+	out vec2 texcoord;
+	void main() {
+		texcoord = (cVertexPosition + vec2(1,1)) * 0.5;
+		gl_Position = vec4(cVertexPosition, 0, 1);
+	}
+)";
+
+const char* fragmentSource = R"(
+	#version 330
+	uniform sampler2D textureUnit;
+	in vec2 texcoord;
+	out vec4 fragmentColor;
+	void main() {
+		fragmentColor = texture(textureUnit, texcoord);
+	}
+)";
+
 struct Material {
 	vec3 ka, kd, ks;
 	float shininess;
@@ -27,26 +47,6 @@ protected:
 public:
 	virtual Hit intersect(const Ray& ray) = 0;
 };
-
-const char* vertexSource = R"(
-	#version 330
-	layout(location = 0) in vec2 cVertexPosition;
-	out vec2 texcoord;
-	void main() {
-		texcoord = (cVertexPosition + vec2(1,1)) * 0.5;
-		gl_Position = vec4(cVertexPosition, 0, 1);
-	}
-)";
-
-const char* fragmentSource = R"(
-	#version 330
-	uniform sampler2D textureUnit;
-	in vec2 texcoord;
-	out vec4 fragmentColor;
-	void main() {
-		fragmentColor = texture(textureUnit, texcoord);
-	}
-)";
 
 class FullScreenTexturedQuad : public Geometry<vec2> {
 	Texture* texture = nullptr;

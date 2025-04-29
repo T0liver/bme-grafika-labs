@@ -92,6 +92,15 @@ struct Ray {
 	Ray(vec3 _start, vec3 _dir, bool _out) : start(_start), out(_out), dir(normalize(_dir)) {}
 };
 
+struct Light {
+	vec3 direction;
+	vec3 Le;
+	Light(vec3 _direction, vec3 _Le) {
+		direction = normalize(_direction);
+		Le = _Le;
+	}
+};
+
 
 class Intersectable {
 protected:
@@ -104,6 +113,9 @@ class Sphere : public Intersectable {
 	vec3 center;
 	float radius;
 public:
+	Sphere(vec3 _center, float _radius, Material* _material) : center(_center), radius(_radius) {
+		material = _material;
+	}
 	Hit intersect(const Ray& ray) override {
 		Hit hit;
 		vec3 dist = ray.start - center;
@@ -254,7 +266,7 @@ public:
 	}
 };
 
-class Cone : Intersectable {
+class Cone : public Intersectable {
 	vec3 base, axis;
 	float angle, height;
 public:
@@ -276,32 +288,55 @@ public:
 
 		float va = dot(v, axis);
 		float co_a = dot(co, axis);
+
 		float A = va * va - cosTheta2;
 		float B = 2 * (va * co_a - dot(v, co) * cosTheta2);
 		float C = co_a * co_a - dot(co, co) * cosTheta2;
+
 		float discr = B * B - 4 * A * C;
-		if (discr < 0) return hit;
+		if (discr >= 0) {
+			float sqrtDiscr = sqrt(discr);
+			float t1 = (-B - sqrtDiscr) / (2 * A);
+			float t2 = (-B + sqrtDiscr) / (2 * A);
 
-		float sqrtDiscr = sqrt(discr);
-		float t1 = (-B - sqrtDiscr) / (2 * A);
-		float t2 = (-B + sqrtDiscr) / (2 * A);
-		float t = (t1 > 0) ? t1 : (t2 > 0) ? t2 : -1;
-		if (t < 0) return hit;
+			float tCone = (t1 > 0) ? t1 : (t2 > 0) ? t2 : -1;
+			if (tCone > 0) {
+				vec3 p = ray.start + tCone * ray.dir;
+				vec3 apexToP = p - base;
+				float heightAlongAxis = dot(apexToP, axis);
+				if (heightAlongAxis >= 0 && heightAlongAxis <= height) {
+					vec3 normalDir = normalize(
+						apexToP - axis * (length(apexToP) / cosTheta)
+					);
 
-		vec3 p = ray.start + t * ray.dir; // Metszéspont
-		vec3 baseToP = p - base;
-		float heightAlongAxis = dot(baseToP, axis);
-		if (heightAlongAxis < 0 || heightAlongAxis > height)
-			return hit;
+					hit.t = tCone;
+					hit.position = p;
+					hit.normal = normalDir;
+					hit.material = material;
+				}
+			}
+		}
 
-		vec3 n = normalize(
-			baseToP - axis * (length(baseToP) / cosTheta)
-		);
+		vec3 baseCenter = base + axis * height;
+		float radius = height * tan(angle);
+		float denom = dot(ray.dir, axis);
 
-		hit.t = t;
-		hit.position = p;
-		hit.normal = n;
-		hit.material = material;
+		if (abs(denom) > 1e-6f) {
+			float tCap = dot(baseCenter - ray.start, axis) / denom;
+			if (tCap > 0) {
+				vec3 pCap = ray.start + tCap * ray.dir;
+				if (length(pCap - baseCenter) <= radius) {
+					if (hit.t < 0 || tCap < hit.t) {
+						hit.t = tCap;
+						hit.position = pCap;
+						hit.normal = -axis;
+						hit.material = material;
+					}
+				}
+			}
+		}
+
+
 		return hit;
 	}
 };
@@ -367,6 +402,7 @@ class Scene {
 	std::vector<Intersectable*> objects;
 	Camera* camera;
 	const vec3 La = vec3(0.4f, 0.4f, 0.4f);
+	Light* light;
 public:
 	void add(Intersectable* obj) {
 		objects.push_back(obj);
@@ -377,11 +413,22 @@ public:
 		camera = cam;
 	}
 
+	void addLight(Light* _light) {
+		light = _light;
+	}
+
 	vec3 trace(const Ray& ray) {
 		Hit bestHit = firstIntersect(ray);
-		if (bestHit.t < 0) return vec3(0.0f, 0.0f, 0.0f);
+		if (bestHit.t < 0) return vec3(0.0f);
 
-		return bestHit.material->ka * La;
+		vec3 radiance = bestHit.material->ka * La;
+
+		vec3 N = normalize(bestHit.normal);
+		vec3 L = normalize(-light->direction);
+		float cosTheta = max(dot(N, L), 0.0f);
+		radiance += bestHit.material->kd * light->Le * cosTheta;
+
+		return radiance;
 	}
 
 	void render(std::vector<vec3>& image) {
@@ -414,6 +461,7 @@ class RaytraceApp : public glApp {
 	GPUProgram* program;
 	Scene* scene;
 	Camera* camera;
+	Light* light;
 	FullScreenTexturedQuad* quad;
 	std::vector<vec3> image;
 public:
@@ -425,18 +473,24 @@ public:
 		program = new GPUProgram(vertexSource, fragmentSource);
 		scene = new Scene();
 		camera = new Camera();
+		light = new Light(vec3(1.0f, 1.0f, 1.0f), vec3(2.0f, 2.0f, 2.0f));
 
 		vec3 eye = vec3(0.0f, 1.0f, 4.0f), vup = vec3(0.0f, 1.0f, 0.0f), lookat = vec3(0.0f, 0.0f, 0.0f);
 		float fov = M_PI_4;
 		camera->set(eye, lookat, vup, fov);
+		scene->addLight(light);
 
 		Material* white = new Material(vec3(0.3f, 0.3f, 0.3f), vec3(0.0f), 0.0f); // fehér
 		Material* blue = new Material(vec3(0.0f, 0.1f, 0.3f), vec3(0.0f), 0.0f); // kék
 		Material* gold = new Material(vec3(1.0f, 0.85f, 0.57f), vec3(1.0f, 0.85f, 0.57f), 100.0f); // arany
+		Material* cyanPhong = new Material(vec3(0.1f, 0.2f, 0.3f), vec3(2.0f, 2.0f, 2.0f), 100.0f); // cyan
 
 		scene->addCam(camera);
 		scene->add(new CheckerPlane(vec3(0.0f, -1.0f, 0.0f), 20.0f, 1.0f, white, blue));
 		scene->add(new Cylinder(vec3(1.0f, -1.0f, 0.0f), vec3(0.1f, 1.0f, 0.0f), 0.3f, 2.0f, blue));
+		scene->add(new Sphere(vec3(1.0f, 0.0f, 0.0f), 0.3f, gold));
+		scene->add(new Cone(vec3(0.0f, 1.0f, 0.0f), vec3(-0.1f, -1.0f, -0.05f), 0.2f, 2.0f, cyanPhong));
+
 
 		scene->render(image);
 	}
@@ -464,6 +518,7 @@ public:
 		delete program;
 		delete scene;
 		delete camera;
+		delete light;
 	}
 };
 

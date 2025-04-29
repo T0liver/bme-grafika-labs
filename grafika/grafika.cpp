@@ -23,10 +23,59 @@ const char* fragmentSource = R"(
 	}
 )";
 
-struct Material {
+class Material {
+public:
 	vec3 ka, kd, ks;
 	float shininess;
+	Material() {}
 	Material(vec3 _kd, vec3 _ks, float _shininess) : ka(_kd* (float)M_PI), kd(_kd), ks(_ks), shininess(_shininess) {}
+	~Material() {}
+};
+
+class MetalMaterial : Material {
+	vec3 n, k;
+public:
+	MetalMaterial(vec3 _n, vec3 _k) : n(_n), k(_k) {}
+
+	vec3 fresnelReflectance(const float cosTheta, const vec3 F0) const {
+		float cos2 = cosTheta * cosTheta;
+		vec3 n2k2 = n * n + k * k;
+
+		vec3 twoNCos = 2.0f * n * cosTheta;
+		vec3 rParallel2 = (n2k2 * cos2 - twoNCos + 1.0f) / (n2k2 * cos2 + twoNCos + 1.0f);
+		vec3 rPerp2 = (n2k2 - twoNCos + cos2) / (n2k2 + twoNCos + cos2);
+		return 0.5f * (rParallel2 + rPerp2);
+	}
+
+	bool isReflective() const { return true; }
+};
+
+class DieMaterial : Material {
+	float ior;
+public:
+	DieMaterial(float _ior) : ior(_ior) {}
+
+	vec3 fresnelReflectance(const float cosTheta, vec3) const {
+		float r0 = pow((1.0f - ior) / (1.0f + ior), 2.0f);
+		return vec3(r0 + (1.0f - r0) * pow(1.0f - cosTheta, 5.0f));
+	}
+
+	bool isReflective() const { return true; }
+	bool isRefractive() const { return true; }
+};
+
+class PhongMaterial : Material {
+public:
+	vec3 ka, kd, ks;
+	float shininess;
+	PhongMaterial(vec3 _kd, vec3 _ks, float _shininess)
+		: kd(_kd), ks(_ks), shininess(_shininess) {
+		ka = _kd * (float)M_PI;
+	}
+
+	vec3 fresnelReflectance(float, vec3) const {
+		return ks;
+	}
 };
 
 struct Hit {
@@ -139,14 +188,12 @@ public:
 			p.z < center.z - halfSize || p.z > center.z + halfSize)
 			return hit;
 
-		// Melyik csempére esett?
 		float relX = p.x + halfSize;
 		float relZ = p.z + halfSize;
 
 		int xi = int(floor(relX / tileSize));
 		int zi = int(floor(relZ / tileSize));
 
-		// A (0.5, 0.5, -1) pont fehér -> xi+zi páros akkor fehér
 		Material* chosenMat = ((xi + zi) % 2 == 0) ? matWhite : matBlue;
 
 		hit.t = t;
@@ -260,14 +307,15 @@ public:
 };
 
 class Camera {
-	vec3 eye, lookat, right, up;
+	vec3 eye, lookat, right, up, vupWorld;
 	float fov;
 public:
-	void set(vec3 _eye, vec3 _lookat, vec3 vup, float _fov) {
+	void set(vec3 _eye, vec3 _lookat, vec3 _vup, float _fov) {
 		eye = _eye; lookat = _lookat; fov = _fov;
+		vupWorld = _vup;
 		vec3 w = eye - lookat;
 		float windowSize = length(w) * tanf(fov / 2);
-		right = normalize(cross(vup, w)) * (float)windowSize * (float)windowWidth / (float)windowHeight;
+		right = normalize(cross(_vup, w)) * (float)windowSize * (float)windowWidth / (float)windowHeight;
 		up = normalize(cross(w, right)) * windowSize;
 	}
 
@@ -280,6 +328,18 @@ public:
 		vec3 d = eye - lookat;
 		eye = vec3(d.x * cos(dt) + d.z * sin(dt), d.y, -d.x * sin(dt) + d.z * cos(dt)) + lookat;
 		set(eye, lookat, up, fov);
+	}
+
+	void Spin(const float angle = M_PI_4) {
+		vec3 d = eye - lookat;
+
+		eye = vec3(
+			d.x * cos(angle) + d.z * sin(angle),
+			d.y,
+			-d.x * sin(angle) + d.z * cos(angle)
+		) + lookat;
+
+		set(eye, lookat, vupWorld, fov);
 	}
 };
 
@@ -366,15 +426,17 @@ public:
 		scene = new Scene();
 		camera = new Camera();
 
-		vec3 eye = vec3(0, 0, 2), vup = vec3(0, 1, 0), lookat = vec3(0, 0, 0);
-		float fov = 45 * (float)M_PI / 180;
+		vec3 eye = vec3(0.0f, 1.0f, 4.0f), vup = vec3(0.0f, 1.0f, 0.0f), lookat = vec3(0.0f, 0.0f, 0.0f);
+		float fov = M_PI_4;
 		camera->set(eye, lookat, vup, fov);
 
 		Material* white = new Material(vec3(0.3f, 0.3f, 0.3f), vec3(0.0f), 0.0f); // fehér
 		Material* blue = new Material(vec3(0.0f, 0.1f, 0.3f), vec3(0.0f), 0.0f); // kék
+		Material* gold = new Material(vec3(1.0f, 0.85f, 0.57f), vec3(1.0f, 0.85f, 0.57f), 100.0f); // arany
 
 		scene->addCam(camera);
-		scene->add(new CheckerPlane(vec3(0, -1, 0), 20.0f, 1.0f, white, blue));
+		scene->add(new CheckerPlane(vec3(0.0f, -1.0f, 0.0f), 20.0f, 1.0f, white, blue));
+		scene->add(new Cylinder(vec3(1.0f, -1.0f, 0.0f), vec3(0.1f, 1.0f, 0.0f), 0.3f, 2.0f, blue));
 
 		scene->render(image);
 	}
@@ -391,9 +453,9 @@ public:
 
 	void onKeyboard(int key) override {
 		if (key == 'a') {
-			camera->Animate(M_PI / 4);
+			camera->Spin();
 			scene->render(image);
-			printf("You spin my head right round, right round... by [45] degrees\n");
+			// printf("You spin my head right round, right round... by [45] degrees\n");
 		}
 	}
 

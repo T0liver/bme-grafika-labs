@@ -389,6 +389,14 @@ public:
 		refreshScreen();
 	}
 
+	void onKeyboard(int key) override {
+		if (key == 'a') {
+			camera->Animate(M_PI / 4);
+			scene->render(image);
+			printf("You spin my head right round, right round... by [45] degrees\n");
+		}
+	}
+
 	~RaytraceApp() {
 		delete quad;
 		delete program;

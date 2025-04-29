@@ -209,21 +209,6 @@ public:
 	}
 };
 
-// TODO: Az objects változót tuti máshonnan fogja megkani, de egyenlőre maradjon így
-Hit firstIntersect(Ray ray, std::vector<Intersectable*>& objects) {  
-   Hit bestHit;  
-   for (Intersectable* obj : objects) {
-       Hit hit = obj->intersect(ray);  
-       if (hit.t > 0 && (bestHit.t < 0 || hit.t < bestHit.t)) {  
-           bestHit = hit;  
-       }  
-   }  
-   if (dot(ray.dir, bestHit.normal) > 0) {  
-       bestHit.normal *= -1;  
-   }  
-   return bestHit;  
-}
-
 class Camera {
 	vec3 eye, lookat, right, up;
 	float fov;
@@ -266,6 +251,52 @@ public:
 		glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 	}
 	~FullScreenTexturedQuad() { delete texture; }
+};
+
+class Scene {
+	std::vector<Intersectable*> objects;
+	Camera camera;
+	const vec3 La = vec3(0.4f, 0.4f, 0.4f);
+public:
+	void add(Intersectable* obj) {
+		objects.push_back(obj);
+	}
+
+	void addCam(const Camera& cam) {
+		camera = cam;
+	}
+
+	vec3 trace(const Ray& ray) {
+		Hit bestHit = firstIntersect(ray);
+		if (bestHit.t < 0) return vec3(0.0f, 0.0f, 0.0f);
+
+		return bestHit.material->ka * La;
+	}
+
+	void render(std::vector<vec3>& image) {
+		// image.resize(windowWidth * windowHeight);
+
+		for (int Y = 0; Y < windowHeight; Y++) {
+			for (int X = 0; X < windowWidth; X++) {
+				vec3 color = trace(camera.getRay(X, Y));
+				image[Y * windowWidth + X] = vec3(color.x, color.y, color.z);
+			}
+		}
+	}
+
+	Hit firstIntersect(Ray ray) {
+		Hit bestHit;
+		for (Intersectable* obj : objects) {
+			Hit hit = obj->intersect(ray);
+			if (hit.t > 0 && (bestHit.t < 0 || hit.t < bestHit.t)) {
+				bestHit = hit;
+			}
+		}
+		if (dot(ray.dir, bestHit.normal) > 0) {
+			bestHit.normal *= -1;
+		}
+		return bestHit;
+	}
 };
 
 class RaytraceApp : public glApp {

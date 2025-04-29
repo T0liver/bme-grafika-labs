@@ -108,6 +108,56 @@ public:
 	}
 };
 
+class CheckerPlane : public Intersectable {
+	vec3 center;
+	float size;
+	vec3 normal;
+	float tileSize;
+	Material* matWhite;
+	Material* matBlue;
+public:
+	CheckerPlane(const vec3& _center, float _size, float _tileSize, Material* _white, Material* _blue)
+		: center(_center), size(_size), tileSize(_tileSize), normal(vec3(0, 1, 0)),
+		matWhite(_white), matBlue(_blue) {
+		material = nullptr;
+	}
+
+	Hit intersect(const Ray& ray) override {
+		Hit hit;
+
+		if (fabs(dot(ray.dir, normal)) < 1e-6f)
+			return hit;
+
+		float t = dot(center - ray.start, normal) / dot(ray.dir, normal);
+		if (t < 0)
+			return hit;
+
+		vec3 p = ray.start + t * ray.dir;
+
+		float halfSize = size / 2.0f;
+		if (p.x < center.x - halfSize || p.x > center.x + halfSize ||
+			p.z < center.z - halfSize || p.z > center.z + halfSize)
+			return hit;
+
+		// Melyik csempére esett?
+		float relX = p.x + halfSize;
+		float relZ = p.z + halfSize;
+
+		int xi = int(floor(relX / tileSize));
+		int zi = int(floor(relZ / tileSize));
+
+		// A (0.5, 0.5, -1) pont fehér -> xi+zi páros akkor fehér
+		Material* chosenMat = ((xi + zi) % 2 == 0) ? matWhite : matBlue;
+
+		hit.t = t;
+		hit.position = p;
+		hit.normal = normal;
+		hit.material = chosenMat;
+		return hit;
+	}
+};
+
+
 class Cylinder : public Intersectable {
 	vec3 base, axis;
 	float radius, height;
@@ -244,10 +294,10 @@ public:
 		delete texture;
 		texture = new Texture(width, height, image);
 	}
-	void Draw(GPUProgram& program) {
+	void Draw(GPUProgram* program) {
 		Bind();
 		if (texture) texture->Bind(0);
-		program.setUniform(0, "textureUnit");
+		program->setUniform(0, "textureUnit");
 		glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 	}
 	~FullScreenTexturedQuad() { delete texture; }
@@ -255,14 +305,15 @@ public:
 
 class Scene {
 	std::vector<Intersectable*> objects;
-	Camera camera;
+	Camera* camera;
 	const vec3 La = vec3(0.4f, 0.4f, 0.4f);
 public:
 	void add(Intersectable* obj) {
 		objects.push_back(obj);
+		printf("added obj %p\n", obj);
 	}
 
-	void addCam(const Camera& cam) {
+	void addCam(Camera* cam) {
 		camera = cam;
 	}
 
@@ -274,11 +325,11 @@ public:
 	}
 
 	void render(std::vector<vec3>& image) {
-		// image.resize(windowWidth * windowHeight);
+		image.resize(windowWidth * windowHeight);
 
 		for (int Y = 0; Y < windowHeight; Y++) {
 			for (int X = 0; X < windowWidth; X++) {
-				vec3 color = trace(camera.getRay(X, Y));
+				vec3 color = trace(camera->getRay(X, Y));
 				image[Y * windowWidth + X] = vec3(color.x, color.y, color.z);
 			}
 		}
@@ -300,19 +351,36 @@ public:
 };
 
 class RaytraceApp : public glApp {
-	GPUProgram program;
+	GPUProgram* program;
+	Scene* scene;
+	Camera* camera;
 	FullScreenTexturedQuad* quad;
+	std::vector<vec3> image;
 public:
 	RaytraceApp() : glApp("Ray tracing") {}
 
 	void onInitialization() override {
 		glViewport(0, 0, windowWidth, windowHeight);
 		quad = new FullScreenTexturedQuad();
-		program.create(vertexSource, fragmentSource);
+		program = new GPUProgram(vertexSource, fragmentSource);
+		scene = new Scene();
+		camera = new Camera();
+
+		vec3 eye = vec3(0, 0, 2), vup = vec3(0, 1, 0), lookat = vec3(0, 0, 0);
+		float fov = 45 * (float)M_PI / 180;
+		camera->set(eye, lookat, vup, fov);
+
+		Material* white = new Material(vec3(0.3f, 0.3f, 0.3f), vec3(0.0f), 0.0f); // fehér
+		Material* blue = new Material(vec3(0.0f, 0.1f, 0.3f), vec3(0.0f), 0.0f); // kék
+
+		scene->addCam(camera);
+		scene->add(new CheckerPlane(vec3(0, -1, 0), 20.0f, 1.0f, white, blue));
+
+		scene->render(image);
 	}
 
 	void onDisplay() override {
-		std::vector<vec3> image(windowWidth * windowHeight);
+		scene->render(image);
 		quad->LoadTexture(windowWidth, windowHeight, image);
 		quad->Draw(program);
 	}
@@ -321,7 +389,12 @@ public:
 		refreshScreen();
 	}
 
-	~RaytraceApp() { delete quad; }
+	~RaytraceApp() {
+		delete quad;
+		delete program;
+		delete scene;
+		delete camera;
+	}
 };
 
 RaytraceApp app;

@@ -433,6 +433,7 @@ class Scene {
 	Camera* camera;
 	const vec3 La = vec3(0.4f, 0.4f, 0.4f);
 	Light* light;
+	std::vector<Light*> lights;
 public:
 	void add(Intersectable* obj) {
 		objects.push_back(obj);
@@ -447,6 +448,10 @@ public:
 		light = _light;
 	}
 
+	void addLightSource(Light* _light) {
+		lights.push_back(_light);
+	}
+
 	vec3 trace(const Ray& ray, int d = 0) {
 		if (d > maxdepth) { return vec3(0.0f, 0.0f, 0.0f); }
 		Hit bestHit = firstIntersect(ray);
@@ -458,9 +463,11 @@ public:
 		vec3 V = -ray.dir;
 
 		if (bestHit.material->type == isRough) {
-			vec3 L = normalize(-light->direction);
+			/*vec3 L = normalize(-light->direction);
 			float cosTheta = max(dot(N, L), 0.0f);
 			radiance += bestHit.material->kd * light->Le * cosTheta;
+			*/
+			radiance += DirectLight(bestHit);
 		}
 		if (bestHit.material->type == isReflective) {
 			vec3 reflectDir = reflect(ray.dir, N);
@@ -512,6 +519,20 @@ public:
 		}
 		return bestHit;
 	}
+
+	vec3 DirectLight(Hit hit) {
+		vec3 outRad = hit.material->ka * La;
+		for (Light* src : lights) {
+			Ray shadowRay(hit.position + hit.normal * Epsilon, src->direction);
+			Hit shadowHit = firstIntersect(shadowRay);
+			if (shadowHit.t < 0) {
+				vec3 L = normalize(src->direction);
+				float cosTheta = max(dot(hit.normal, L), 0.0f);
+				outRad += hit.material->kd * src->Le * cosTheta;
+			}
+		}
+		return outRad;
+	}
 };
 
 class RaytraceApp : public glApp {
@@ -536,6 +557,8 @@ public:
 		float fov = M_PI_4;
 		camera->set(eye, lookat, vup, fov);
 		scene->addLight(light);
+		scene->addLightSource(light);
+		scene->addLightSource(new Light(vec3(1.0f, 1.0f, 1.0f), vec3(0.4f, 0.4f, 0.4f)));
 
 		Material* gold = new Material(vec3(0.0f), vec3(1.0f), 0.0f, vec3(0.17f, 0.35f, 1.5f), vec3(3.1f, 2.7f, 1.9f), isReflective); // arany.v2
 		Material* water = new Material(vec3(0.0f), vec3(1.0f), 0.0f, vec3(1.33f, 1.33f, 1.33f), vec3(0.0f), isRefractive); // viz

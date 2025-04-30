@@ -2,6 +2,8 @@
 
 const int windowWidth = 600, windowHeight = 600;
 const float Epsilon = 0.0001f;
+const int maxdepth = 5;
+const vec3 bgColor(0.4f, 0.4f, 0.4f);
 
 const char* vertexSource = R"(
 	#version 330
@@ -36,16 +38,21 @@ struct Material {
 	MaterialType type;
 	float shininess;
 	Material() {}
-	Material(vec3 _kd, vec3 _ks, float _shininess, vec3 _n = vec3(0.0f), vec3 _k = vec3(0.0f), MaterialType _type) : ka(_kd* (float)M_PI), kd(_kd), ks(_ks), shininess(_shininess), n(_n), k(_k), type(_type) {}
+	Material(vec3 _kd, vec3 _ks, float _shininess, vec3 _n = vec3(0.0f), vec3 _k = vec3(0.0f), MaterialType _type = isRough) : ka(_kd* (float)M_PI), kd(_kd), ks(_ks), shininess(_shininess), n(_n), k(_k), type(_type) {}
 	~Material() {}
 
 	vec3 fresnelReflectance(const float cosTheta, const vec3 F0) const {
+		float clampedCosTheta = clamp(cosTheta, 0.0f, 1.0f);
+		float cos2;
+		vec3 rParalell2, rPerp2;
 		switch (type)
 		{
 		case isRough:
+			return F0 + (vec3(1.0f) - F0) * pow(1.0f - clampedCosTheta, 5.0f);
+
 			break;
 		case isReflective:
-			float cos2 = cosTheta * cosTheta;
+			cos2 = cosTheta * cosTheta;
 			vec3 n2k2 = n * n + k * k;
 
 			vec3 twoNCos = 2.0f * n * cosTheta;
@@ -54,6 +61,23 @@ struct Material {
 			return 0.5f * (rParallel2 + rPerp2);
 			break;
 		case isRefractive:
+			vec3 eta = n;
+			vec3 kappa = k;
+
+			cos2 = clampedCosTheta * clampedCosTheta;
+
+			vec3 eta2 = eta * eta;
+			vec3 kappa2 = kappa * kappa;
+
+			vec3 twoEtaCos = 2.0f * eta * clampedCosTheta;
+
+			rParallel2 = ((eta2 + kappa2) * cos2 - twoEtaCos + 1.0f) /
+				((eta2 + kappa2) * cos2 + twoEtaCos + 1.0f);
+
+			rPerp2 = (eta2 + kappa2 - twoEtaCos + cos2) /
+				(eta2 + kappa2 + twoEtaCos + cos2);
+
+			return 0.5f * (rParallel2 + rPerp2);
 			break;
 		default:
 			break;
@@ -238,15 +262,12 @@ public:
 		float mn = dot(m, n);
 		float dd = dot(d, d);
 		float nn = dot(n, n);
-		// float a = dd - nd * nd;
 		float a = dot(d - nd * n, d - nd * n);
 		float k = dot(m, m) - radius * radius;
 		vec3 z = m - dot(m, n) * n;
-		//float c = k - mn * mn;
 		float c = dot(z, z) - radius * radius;
 		if (fabs(a) < 1e-6f) return hit;
 
-		//float b = dd * mn - nd * md;
 		float b = 2.0f * dot(d - nd * n, z);
 		float discr = b * b - 4.0f * a * c;
 		if (discr < 0) return hit;
@@ -291,30 +312,30 @@ public:
 		float co_a = dot(co, axis);
 
 		float A = va * va - cosTheta2;
-		float B = 2 * (va * co_a - dot(v, co) * cosTheta2);
+		float B = 2.0f * (va * co_a - dot(v, co) * cosTheta2);
 		float C = co_a * co_a - dot(co, co) * cosTheta2;
 
-		float discr = B * B - 4 * A * C;
-		if (discr >= 0) {
+		float discr = B * B - 4.0f * A * C;
+		if (discr >= 0.0f) {
 			float sqrtDiscr = sqrt(discr);
-			float t1 = (-B - sqrtDiscr) / (2 * A);
-			float t2 = (-B + sqrtDiscr) / (2 * A);
+			float t1 = (-B - sqrtDiscr) / (2.0f * A);
+			float t2 = (-B + sqrtDiscr) / (2.0f * A);
 
 			float tCone;
 			if (t1 > 0 && t2 <= 0) {
 				tCone = t1;
-			} else if (t2 > 0 && t1 <= 0) {
+			} else if (t2 > 0.0f && t1 <= 0.0f) {
 				tCone = t2;
-			} else if (t1 > 0 && t2 > 0) {
+			} else if (t1 > 0.0f && t2 > 0.0f) {
 				tCone = fmin(t1, t2);
 			} else {
-				tCone = -1;
+				tCone = -1.0f;
 			}
-			if (tCone > 0) {
+			if (tCone > 0.0f) {
 				vec3 p = ray.start + tCone * ray.dir;
 				vec3 apexToP = p - base;
 				float heightAlongAxis = dot(apexToP, axis);
-				if (heightAlongAxis >= 0 && heightAlongAxis <= height) {
+				if (heightAlongAxis >= 0.0f && heightAlongAxis <= height) {
 					vec3 normalDir = normalize(
 						apexToP - axis * (length(apexToP) / cosTheta)
 					);
@@ -364,7 +385,7 @@ public:
 	}
 
 	Ray getRay(int X, int Y) {
-		vec3 dir = lookat + right * (2 * (X + 0.5f) / windowWidth - 1) + up * (2 * (Y + 0.5f) / windowHeight - 1) - eye;
+		vec3 dir = lookat + right * (2.0f * (X + 0.5f) / windowWidth - 1.0f) + up * (2.0f * (Y + 0.5f) / windowHeight - 1.0f) - eye;
 		return Ray(eye, dir);
 	}
 
@@ -425,17 +446,44 @@ public:
 	void addLight(Light* _light) {
 		light = _light;
 	}
-	// if else dolog, hogy a material type az milyen
-	vec3 trace(const Ray& ray) {
+
+	vec3 trace(const Ray& ray, int d = 0) {
+		if (d > maxdepth) { return vec3(0.0f, 0.0f, 0.0f); }
 		Hit bestHit = firstIntersect(ray);
-		if (bestHit.t < 0) return vec3(0.0f);
+		if (bestHit.t < 0) return bgColor;
 
 		vec3 radiance = bestHit.material->ka * La;
-
+		vec3 r = bestHit.position;
 		vec3 N = normalize(bestHit.normal);
-		vec3 L = normalize(-light->direction);
-		float cosTheta = max(dot(N, L), 0.0f);
-		radiance += bestHit.material->kd * light->Le * cosTheta;
+		vec3 V = -ray.dir;
+
+		if (bestHit.material->type == isRough) {
+			vec3 L = normalize(-light->direction);
+			float cosTheta = max(dot(N, L), 0.0f);
+			radiance += bestHit.material->kd * light->Le * cosTheta;
+		}
+		if (bestHit.material->type == isReflective) {
+			vec3 reflectDir = reflect(ray.dir, N);
+			Ray reflectRay(r + N * Epsilon, reflectDir, ray.out);
+			vec3 F = bestHit.material->fresnelReflectance(dot(V, N), bestHit.material->ks);
+			radiance += trace(reflectRay, d + 1) * F;
+		}
+		if (bestHit.material->type == isRefractive) {
+			float ior = ray.out ? bestHit.material->n.x : 1.0f / bestHit.material->n.x;
+			vec3 refractionDir = refract(ray.dir, N, ior);
+
+			vec3 F = bestHit.material->fresnelReflectance(dot(V, N), bestHit.material->ks);
+
+			vec3 reflectDir = reflect(ray.dir, N);
+			Ray reflectRay(r + N * Epsilon, reflectDir, ray.out);
+			radiance += trace(reflectRay, d + 1) * F;
+
+			if (length(refractionDir) > 0.0f) {
+				Ray refractRay(r - N * Epsilon, refractionDir, !ray.out);
+				radiance += trace(refractRay, d + 1) * (vec3(1.0f) - F);
+			}
+		}
+		
 
 		return radiance;
 	}
@@ -489,18 +537,21 @@ public:
 		camera->set(eye, lookat, vup, fov);
 		scene->addLight(light);
 
+		Material* gold = new Material(vec3(0.0f), vec3(1.0f), 0.0f, vec3(0.17f, 0.35f, 1.5f), vec3(3.1f, 2.7f, 1.9f), isReflective); // arany.v2
+		Material* water = new Material(vec3(0.0f), vec3(1.0f), 0.0f, vec3(1.33f, 1.33f, 1.33f), vec3(0.0f), isRefractive); // viz
 		Material* white = new Material(vec3(0.3f, 0.3f, 0.3f), vec3(0.0f), 0.0f); // fehér
 		Material* blue = new Material(vec3(0.0f, 0.1f, 0.3f), vec3(0.0f), 0.0f); // kék
-		Material* gold = new Material(vec3(1.0f, 0.85f, 0.57f), vec3(1.0f, 0.85f, 0.57f), 100.0f); // arany
-		Material* cyanPhong = new Material(vec3(0.1f, 0.2f, 0.3f), vec3(2.0f, 2.0f, 2.0f), 100.0f); // cyan
+		Material* yellowPlastic = new Material(vec3(0.3f, 0.2f, 0.1f), vec3(2.0f, 2.0f, 2.0f), 50.0f, vec3(0.0f), vec3(0.0f), isRough); // sárga műanyag
+		Material* cyanPlastic = new Material(vec3(0.1f, 0.2f, 0.3f), vec3(2.0f, 2.0f, 2.0f), 100.0f, vec3(0.0f), vec3(0.0f), isRough); // cián műanyag
+		Material* magentaPlastic = new Material(vec3(0.3f, 0.0f, 0.2f), vec3(2.0f, 2.0f, 2.0f), 20.0f, vec3(0.0f), vec3(0.0f), isRough); // magenta műanyag
 
 		scene->addCam(camera);
 		scene->add(new CheckerPlane(vec3(0.0f, -1.0f, 0.0f), 20.0f, 1.0f, white, blue));
-		scene->add(new Cylinder(vec3(1.0f, -1.0f, 0.0f), vec3(0.1f, 1.0f, 0.0f), 0.3f, 2.0f, blue));
-		// scene->add(new Sphere(vec3(1.0f, 0.0f, 0.0f), 0.3f, gold));
-		scene->add(new Cone(vec3(0.0f, 1.0f, 0.0f), vec3(-0.1f, -1.0f, -0.05f), 0.2f, 2.0f, cyanPhong));
-		// scene->add(new Cone(vec3(0.0f, 2.0f, 0.0f), vec3(-0.0f, -1.0f, -0.0f), 0.2f, 2.0f, cyanPhong));
-
+		scene->add(new Cylinder(vec3(0.0f, -1.0f, -0.8f), vec3(-0.2f, 1.0f, -0.1f), 0.3f, 2.0f, water));
+		scene->add(new Cylinder(vec3(1.0f, -1.0f, 0.0f), vec3(0.1f, 1.0f, 0.0f), 0.3f, 2.0f, gold));
+		scene->add(new Cylinder(vec3(-1.0f, -1.0f, 0.0f), vec3(0.0f, 1.0f, 0.1f), 0.3f, 2.0f, yellowPlastic));
+		scene->add(new Cone(vec3(0.0f, 1.0f, 0.0f), vec3(-0.1f, -1.0f, -0.05f), 0.2f, 2.0f, cyanPlastic));
+		scene->add(new Cone(vec3(0.0f, 1.0f, 0.8f), vec3(0.2f, -1.0f, -0.0f), 0.2f, 2.0f, magentaPlastic));
 
 		scene->render(image);
 	}

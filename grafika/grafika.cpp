@@ -25,6 +25,13 @@ const char* fragmentSource = R"(
 	}
 )";
 
+template<typename T>
+T clampp(const T& value, const T& min, const T& max) {
+	if (value < min) return min;
+	if (value > max) return max;
+	return value;
+}
+
 enum MaterialType
 {
 	isRough,
@@ -42,22 +49,28 @@ struct Material {
 	~Material() {}
 
 	vec3 fresnelReflectance(const float cosTheta, const vec3 F0) const {
-		float clampedCosTheta = clamp(cosTheta, 0.0f, 1.0f);
+		float clampedCosTheta = clampp(cosTheta, 0.0f, 1.0f);
 		float cos2;
-		vec3 rParalell2, rPerp2;
+		vec3 rParalell2, rPerp2, tmpD, tmpU, tmp2D, tmp2U;
 		switch (type)
 		{
 		case isRough:
 			return F0 + (vec3(1.0f) - F0) * pow(1.0f - clampedCosTheta, 5.0f);
-
 			break;
 		case isReflective:
 			cos2 = cosTheta * cosTheta;
 			vec3 n2k2 = n * n + k * k;
 
 			vec3 twoNCos = 2.0f * n * cosTheta;
-			vec3 rParallel2 = (n2k2 * cos2 - twoNCos + 1.0f) / (n2k2 * cos2 + twoNCos + 1.0f);
-			vec3 rPerp2 = (n2k2 - twoNCos + cos2) / (n2k2 + twoNCos + cos2);
+
+			tmpD = n2k2 * cos2 - twoNCos + 1.0f;
+			tmpU = n2k2 * cos2 + twoNCos + 1.0f;
+			vec3 rParallel2 = vec3(tmpD.x / tmpU.x, tmpD.y / tmpU.y, tmpD.z / tmpU.z);
+
+			tmp2D = n2k2 - twoNCos + cos2;
+			tmp2U = n2k2 + twoNCos + cos2;
+			vec3 rPerp2 = vec3(tmp2D.x / tmp2U.x, tmp2D.y / tmp2U.y, tmp2D.z / tmp2U.z);
+
 			return 0.5f * (rParallel2 + rPerp2);
 			break;
 		case isRefractive:
@@ -71,11 +84,13 @@ struct Material {
 
 			vec3 twoEtaCos = 2.0f * eta * clampedCosTheta;
 
-			rParallel2 = ((eta2 + kappa2) * cos2 - twoEtaCos + 1.0f) /
-				((eta2 + kappa2) * cos2 + twoEtaCos + 1.0f);
+			vec3 tmpD = (eta2 + kappa2) * cos2 - twoEtaCos + 1.0f;
+			vec3 tmpU = (eta2 + kappa2) * cos2 + twoEtaCos + 1.0f;
+			rParallel2 = vec3(tmpD.x / tmpU.x, tmpD.y / tmpU.y, tmpD.z / tmpU.z);
 
-			rPerp2 = (eta2 + kappa2 - twoEtaCos + cos2) /
-				(eta2 + kappa2 + twoEtaCos + cos2);
+			vec3 tmp2D = (eta2 + kappa2) - twoEtaCos + cos2;
+			vec3 tmp2U = (eta2 + kappa2) + twoEtaCos + cos2;
+			rPerp2 = vec3(tmp2D.x / tmp2U.x, tmp2D.y / tmp2U.y, tmp2D.z / tmp2U.z);
 
 			return 0.5f * (rParallel2 + rPerp2);
 			break;
@@ -83,20 +98,6 @@ struct Material {
 			break;
 		}
 	}
-};
-
-class DieMaterial : Material {
-	float ior;
-public:
-	DieMaterial(float _ior) : ior(_ior) {}
-
-	vec3 fresnelReflectance(const float cosTheta, vec3) const {
-		float r0 = pow((1.0f - ior) / (1.0f + ior), 2.0f);
-		return vec3(r0 + (1.0f - r0) * pow(1.0f - cosTheta, 5.0f));
-	}
-
-	bool isReflective() const { return true; }
-	bool isRefractive() const { return true; }
 };
 
 struct Hit {
@@ -531,7 +532,7 @@ public:
 				outRad += hit.material->kd * src->Le * cosTheta;
 			}
 		}
-		return outRad;
+		return outRad * 0.5f;
 	}
 };
 

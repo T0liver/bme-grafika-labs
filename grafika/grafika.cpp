@@ -23,31 +23,42 @@ const char* fragmentSource = R"(
 	}
 )";
 
-class Material {
-public:
-	vec3 ka, kd, ks;
-	float shininess;
-	Material() {}
-	Material(vec3 _kd, vec3 _ks, float _shininess) : ka(_kd* (float)M_PI), kd(_kd), ks(_ks), shininess(_shininess) {}
-	~Material() {}
+enum MaterialType
+{
+	isRough,
+	isReflective,
+	isRefractive
 };
 
-class MetalMaterial : Material {
+struct Material {
+	vec3 ka, kd, ks;
 	vec3 n, k;
-public:
-	MetalMaterial(vec3 _n, vec3 _k) : n(_n), k(_k) {}
+	MaterialType type;
+	float shininess;
+	Material() {}
+	Material(vec3 _kd, vec3 _ks, float _shininess, vec3 _n = vec3(0.0f), vec3 _k = vec3(0.0f), MaterialType _type) : ka(_kd* (float)M_PI), kd(_kd), ks(_ks), shininess(_shininess), n(_n), k(_k), type(_type) {}
+	~Material() {}
 
 	vec3 fresnelReflectance(const float cosTheta, const vec3 F0) const {
-		float cos2 = cosTheta * cosTheta;
-		vec3 n2k2 = n * n + k * k;
+		switch (type)
+		{
+		case isRough:
+			break;
+		case isReflective:
+			float cos2 = cosTheta * cosTheta;
+			vec3 n2k2 = n * n + k * k;
 
-		vec3 twoNCos = 2.0f * n * cosTheta;
-		vec3 rParallel2 = (n2k2 * cos2 - twoNCos + 1.0f) / (n2k2 * cos2 + twoNCos + 1.0f);
-		vec3 rPerp2 = (n2k2 - twoNCos + cos2) / (n2k2 + twoNCos + cos2);
-		return 0.5f * (rParallel2 + rPerp2);
+			vec3 twoNCos = 2.0f * n * cosTheta;
+			vec3 rParallel2 = (n2k2 * cos2 - twoNCos + 1.0f) / (n2k2 * cos2 + twoNCos + 1.0f);
+			vec3 rPerp2 = (n2k2 - twoNCos + cos2) / (n2k2 + twoNCos + cos2);
+			return 0.5f * (rParallel2 + rPerp2);
+			break;
+		case isRefractive:
+			break;
+		default:
+			break;
+		}
 	}
-
-	bool isReflective() const { return true; }
 };
 
 class DieMaterial : Material {
@@ -62,20 +73,6 @@ public:
 
 	bool isReflective() const { return true; }
 	bool isRefractive() const { return true; }
-};
-
-class PhongMaterial : Material {
-public:
-	vec3 ka, kd, ks;
-	float shininess;
-	PhongMaterial(vec3 _kd, vec3 _ks, float _shininess)
-		: kd(_kd), ks(_ks), shininess(_shininess) {
-		ka = _kd * (float)M_PI;
-	}
-
-	vec3 fresnelReflectance(float, vec3) const {
-		return ks;
-	}
 };
 
 struct Hit {
@@ -241,16 +238,20 @@ public:
 		float mn = dot(m, n);
 		float dd = dot(d, d);
 		float nn = dot(n, n);
-		float a = dd - nd * nd;
+		// float a = dd - nd * nd;
+		float a = dot(d - nd * n, d - nd * n);
 		float k = dot(m, m) - radius * radius;
-		float c = k - mn * mn;
-		if (abs(a) < 1e-6f) return hit;
+		vec3 z = m - dot(m, n) * n;
+		//float c = k - mn * mn;
+		float c = dot(z, z) - radius * radius;
+		if (fabs(a) < 1e-6f) return hit;
 
-		float b = dd * mn - nd * md;
-		float discr = b * b - a * c;
+		//float b = dd * mn - nd * md;
+		float b = 2.0f * dot(d - nd * n, z);
+		float discr = b * b - 4.0f * a * c;
 		if (discr < 0) return hit;
 
-		float t = (-b - sqrt(discr)) / a;
+		float t = (-b - sqrtf(discr)) / (2.0f * a);
 		if (t < 0) return hit;
 
 		vec3 p = ray.start + t * d;
@@ -299,7 +300,16 @@ public:
 			float t1 = (-B - sqrtDiscr) / (2 * A);
 			float t2 = (-B + sqrtDiscr) / (2 * A);
 
-			float tCone = (t1 > 0) ? t1 : (t2 > 0) ? t2 : -1;
+			float tCone;
+			if (t1 > 0 && t2 <= 0) {
+				tCone = t1;
+			} else if (t2 > 0 && t1 <= 0) {
+				tCone = t2;
+			} else if (t1 > 0 && t2 > 0) {
+				tCone = fmin(t1, t2);
+			} else {
+				tCone = -1;
+			}
 			if (tCone > 0) {
 				vec3 p = ray.start + tCone * ray.dir;
 				vec3 apexToP = p - base;
@@ -321,12 +331,12 @@ public:
 		float radius = height * tan(angle);
 		float denom = dot(ray.dir, axis);
 
-		if (abs(denom) > 1e-6f) {
+		if (abs(denom) > 0.0f) {
 			float tCap = dot(baseCenter - ray.start, axis) / denom;
-			if (tCap > 0) {
+			if (tCap > 0.0f) {
 				vec3 pCap = ray.start + tCap * ray.dir;
 				if (length(pCap - baseCenter) <= radius) {
-					if (hit.t < 0 || tCap < hit.t) {
+					if (hit.t < 0.0f || tCap < hit.t) {
 						hit.t = tCap;
 						hit.position = pCap;
 						hit.normal = -axis;
@@ -335,7 +345,6 @@ public:
 				}
 			}
 		}
-
 
 		return hit;
 	}
@@ -416,7 +425,7 @@ public:
 	void addLight(Light* _light) {
 		light = _light;
 	}
-
+	// if else dolog, hogy a material type az milyen
 	vec3 trace(const Ray& ray) {
 		Hit bestHit = firstIntersect(ray);
 		if (bestHit.t < 0) return vec3(0.0f);
@@ -488,8 +497,9 @@ public:
 		scene->addCam(camera);
 		scene->add(new CheckerPlane(vec3(0.0f, -1.0f, 0.0f), 20.0f, 1.0f, white, blue));
 		scene->add(new Cylinder(vec3(1.0f, -1.0f, 0.0f), vec3(0.1f, 1.0f, 0.0f), 0.3f, 2.0f, blue));
-		scene->add(new Sphere(vec3(1.0f, 0.0f, 0.0f), 0.3f, gold));
+		// scene->add(new Sphere(vec3(1.0f, 0.0f, 0.0f), 0.3f, gold));
 		scene->add(new Cone(vec3(0.0f, 1.0f, 0.0f), vec3(-0.1f, -1.0f, -0.05f), 0.2f, 2.0f, cyanPhong));
+		// scene->add(new Cone(vec3(0.0f, 2.0f, 0.0f), vec3(-0.0f, -1.0f, -0.0f), 0.2f, 2.0f, cyanPhong));
 
 
 		scene->render(image);

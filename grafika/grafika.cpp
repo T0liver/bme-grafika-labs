@@ -95,6 +95,7 @@ struct Material {
 			return 0.5f * (rParallel2 + rPerp2);
 			break;
 		default:
+			return vec3(0.0f);
 			break;
 		}
 	}
@@ -432,7 +433,7 @@ public:
 class Scene {
 	std::vector<Intersectable*> objects;
 	Camera* camera;
-	const vec3 La = vec3(0.4f, 0.4f, 0.4f);
+	const vec3 La = vec3(0.2f, 0.2f, 0.2f);
 	Light* light;
 	std::vector<Light*> lights;
 public:
@@ -464,11 +465,7 @@ public:
 		vec3 V = -ray.dir;
 
 		if (bestHit.material->type == isRough) {
-			/*vec3 L = normalize(-light->direction);
-			float cosTheta = max(dot(N, L), 0.0f);
-			radiance += bestHit.material->kd * light->Le * cosTheta;
-			*/
-			radiance += DirectLight(bestHit);
+			radiance += DirectLight(bestHit, ray);
 		}
 		if (bestHit.material->type == isReflective) {
 			vec3 reflectDir = reflect(ray.dir, N);
@@ -521,6 +518,11 @@ public:
 		return bestHit;
 	}
 
+	bool shadowIntersect(Ray ray) {
+		for (Intersectable* object : objects) if (object->intersect(ray).t > 0) return true;
+		return false;
+	}
+
 	vec3 DirectLight(Hit hit) {
 		vec3 outRad = hit.material->ka * La;
 		for (Light* src : lights) {
@@ -528,11 +530,34 @@ public:
 			Hit shadowHit = firstIntersect(shadowRay);
 			if (shadowHit.t < 0) {
 				vec3 L = normalize(src->direction);
+				vec3 V = normalize(-hit.position);
+				vec3 H = normalize(L + V);
+
 				float cosTheta = max(dot(hit.normal, L), 0.0f);
+				float cosDelta = max(dot(hit.normal, H), 0.0f);
+
 				outRad += hit.material->kd * src->Le * cosTheta;
+				outRad += hit.material->ks * src->Le * pow(cosDelta, hit.material->shininess);
 			}
 		}
-		return outRad * 0.5f;
+		return outRad;
+	}
+
+	vec3 DirectLight(Hit hit, Ray ray) {
+		vec3 outRadiance = hit.material->ka * La;
+		for (Light* light : lights) {
+			Ray shadowRay(hit.position + hit.normal * Epsilon, light->direction);
+			float cosTheta = dot(hit.normal, light->direction);
+			if (cosTheta > 0 && !shadowIntersect(shadowRay)) {	// shadow computation
+				outRadiance = outRadiance + light->Le * hit.material->kd * cosTheta;
+				vec3 halfway = normalize(-ray.dir + light->direction);
+				float cosDelta = dot(hit.normal, halfway);
+				if (cosDelta > 0) outRadiance = outRadiance + light->Le * hit.material->ks * powf(cosDelta, hit.material->shininess);
+			} else {
+				outRadiance;
+			}
+		}
+		return outRadiance;
 	}
 };
 
@@ -559,7 +584,7 @@ public:
 		camera->set(eye, lookat, vup, fov);
 		scene->addLight(light);
 		scene->addLightSource(light);
-		scene->addLightSource(new Light(vec3(1.0f, 1.0f, 1.0f), vec3(0.4f, 0.4f, 0.4f)));
+		scene->addLightSource(new Light(vec3(1.0f, 1.0f, 1.0f), vec3(-0.4f, -0.4f, -0.4f)));
 
 		Material* gold = new Material(vec3(0.0f), vec3(1.0f), 0.0f, vec3(0.17f, 0.35f, 1.5f), vec3(3.1f, 2.7f, 1.9f), isReflective); // arany.v2
 		Material* water = new Material(vec3(0.0f), vec3(1.0f), 0.0f, vec3(1.33f, 1.33f, 1.33f), vec3(0.0f), isRefractive); // viz

@@ -32,6 +32,35 @@ T clampp(const T& value, const T& min, const T& max) {
 	return value;
 }
 
+template<typename genType> genType maxx(genType x, genType y)
+{
+	return (x < y) ? y : x;
+}
+
+vec3 reflect(const vec3& I, const vec3& N) {
+	return I - 2.0f * dot(I, N) * N;
+}
+
+vec3 refract(const vec3& I, const vec3& N, float eta) {
+	float cosi = clampp(dot(-I, N), -1.0f, 1.0f);
+	float etai = 1.0f, etat = eta;
+	vec3 n = N;
+
+	if (cosi < 0) {
+		cosi = -cosi;
+		std::swap(etai, etat);
+		n = -N;
+	}
+
+	float etaRatio = etai / etat;
+	float k = 1.0f - etaRatio * etaRatio * (1.0f - cosi * cosi);
+	if (k < 0.0f)
+		return vec3(0.0f);
+	else
+		return etaRatio * I + (etaRatio * cosi - sqrtf(k)) * n;
+}
+
+
 enum MaterialType
 {
 	isRough,
@@ -42,42 +71,47 @@ enum MaterialType
 struct Material {
 	vec3 ka, kd, ks;
 	vec3 n, k;
-	MaterialType type;
 	float shininess;
+	MaterialType type;
 	Material() {}
-	Material(vec3 _kd, vec3 _ks, float _shininess, vec3 _n = vec3(0.0f), vec3 _k = vec3(0.0f), MaterialType _type = isRough) : ka(_kd* (float)M_PI), kd(_kd), ks(_ks), shininess(_shininess), n(_n), k(_k), type(_type) {}
+	Material(vec3 _kd, vec3 _ks, float _shininess, vec3 _n = vec3(0.0f), vec3 _k = vec3(0.0f), MaterialType _type = isRough)
+		: ka(_kd* (float)M_PI), kd(_kd), ks(_ks), n(_n), k(_k), shininess(_shininess), type(_type) {}
 	~Material() {}
 
 	vec3 fresnelReflectance(const float cosTheta, const vec3 F0) const {
-		float clampedCosTheta = clampp(cosTheta, 0.0f, 1.0f);
-		float cos2;
-		vec3 rParalell2, rPerp2, tmpD, tmpU, tmp2D, tmp2U;
 		switch (type)
 		{
 		case isRough:
+		{
+			float clampedCosTheta = clampp(cosTheta, 0.0f, 1.0f);
 			return F0 + (vec3(1.0f) - F0) * pow(1.0f - clampedCosTheta, 5.0f);
 			break;
+		}
 		case isReflective:
-			cos2 = cosTheta * cosTheta;
+		{
+			float cos2 = cosTheta * cosTheta;
 			vec3 n2k2 = n * n + k * k;
 
 			vec3 twoNCos = 2.0f * n * cosTheta;
 
-			tmpD = n2k2 * cos2 - twoNCos + 1.0f;
-			tmpU = n2k2 * cos2 + twoNCos + 1.0f;
+			vec3 tmpD = n2k2 * cos2 - twoNCos + 1.0f;
+			vec3 tmpU = n2k2 * cos2 + twoNCos + 1.0f;
 			vec3 rParallel2 = vec3(tmpD.x / tmpU.x, tmpD.y / tmpU.y, tmpD.z / tmpU.z);
 
-			tmp2D = n2k2 - twoNCos + cos2;
-			tmp2U = n2k2 + twoNCos + cos2;
+			vec3 tmp2D = n2k2 - twoNCos + cos2;
+			vec3 tmp2U = n2k2 + twoNCos + cos2;
 			vec3 rPerp2 = vec3(tmp2D.x / tmp2U.x, tmp2D.y / tmp2U.y, tmp2D.z / tmp2U.z);
 
 			return 0.5f * (rParallel2 + rPerp2);
 			break;
+		}
 		case isRefractive:
+		{
 			vec3 eta = n;
 			vec3 kappa = k;
 
-			cos2 = clampedCosTheta * clampedCosTheta;
+			float clampedCosTheta = clampp(cosTheta, 0.0f, 1.0f);
+			float cos2 = clampedCosTheta * clampedCosTheta;
 
 			vec3 eta2 = eta * eta;
 			vec3 kappa2 = kappa * kappa;
@@ -86,14 +120,15 @@ struct Material {
 
 			vec3 tmpD = (eta2 + kappa2) * cos2 - twoEtaCos + 1.0f;
 			vec3 tmpU = (eta2 + kappa2) * cos2 + twoEtaCos + 1.0f;
-			rParallel2 = vec3(tmpD.x / tmpU.x, tmpD.y / tmpU.y, tmpD.z / tmpU.z);
+			vec3 rParallel2 = vec3(tmpD.x / tmpU.x, tmpD.y / tmpU.y, tmpD.z / tmpU.z);
 
 			vec3 tmp2D = (eta2 + kappa2) - twoEtaCos + cos2;
 			vec3 tmp2U = (eta2 + kappa2) + twoEtaCos + cos2;
-			rPerp2 = vec3(tmp2D.x / tmp2U.x, tmp2D.y / tmp2U.y, tmp2D.z / tmp2U.z);
+			vec3 rPerp2 = vec3(tmp2D.x / tmp2U.x, tmp2D.y / tmp2U.y, tmp2D.z / tmp2U.z);
 
 			return 0.5f * (rParallel2 + rPerp2);
 			break;
+		}
 		default:
 			return vec3(0.0f);
 			break;
@@ -112,7 +147,7 @@ struct Ray {
 	vec3 start, dir;
 	bool out;
 	Ray(vec3 _start, vec3 _dir) : start(_start), dir(normalize(_dir)) {}
-	Ray(vec3 _start, vec3 _dir, bool _out) : start(_start), out(_out), dir(normalize(_dir)) {}
+	Ray(vec3 _start, vec3 _dir, bool _out) : start(_start), dir(normalize(_dir)), out(_out) {}
 };
 
 struct Light {
@@ -201,7 +236,7 @@ class CheckerPlane : public Intersectable {
 	Material* matBlue;
 public:
 	CheckerPlane(const vec3& _center, float _size, float _tileSize, Material* _white, Material* _blue)
-		: center(_center), size(_size), tileSize(_tileSize), normal(vec3(0, 1, 0)),
+		: center(_center), size(_size), normal(vec3(0, 1, 0)), tileSize(_tileSize),
 		matWhite(_white), matBlue(_blue) {
 		material = nullptr;
 	}
@@ -259,6 +294,7 @@ public:
 		vec3 m = ray.start - base;
 		vec3 n = axis;
 
+		// JPorta: warning: unused variable ‘md’, 'mn', 'dd', 'nn', 'k' [-Wunused-variable]
 		float md = dot(m, d);
 		float nd = dot(n, d);
 		float mn = dot(m, n);
@@ -419,7 +455,10 @@ public:
 	}
 	void LoadTexture(int width, int height, std::vector<vec3>& image) {
 		delete texture;
-		texture = new Texture(width, height, image);
+		texture = new Texture(width, height);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_FLOAT, &image[0]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
 	void Draw(GPUProgram* program) {
 		Bind();
@@ -468,6 +507,7 @@ public:
 			radiance += DirectLight(bestHit, ray);
 		}
 		if (bestHit.material->type == isReflective) {
+			// JPorta: error: ‘reflect’ was not declared in this scope
 			vec3 reflectDir = reflect(ray.dir, N);
 			Ray reflectRay(r + N * Epsilon, reflectDir, ray.out);
 			vec3 F = bestHit.material->fresnelReflectance(dot(V, N), bestHit.material->ks);
@@ -475,6 +515,7 @@ public:
 		}
 		if (bestHit.material->type == isRefractive) {
 			float ior = ray.out ? bestHit.material->n.x : 1.0f / bestHit.material->n.x;
+			// JPorta: error: ‘refract’ was not declared in this scope
 			vec3 refractionDir = refract(ray.dir, N, ior);
 
 			vec3 F = bestHit.material->fresnelReflectance(dot(V, N), bestHit.material->ks);
@@ -513,7 +554,8 @@ public:
 			}
 		}
 		if (dot(ray.dir, bestHit.normal) > 0) {
-			bestHit.normal *= -1;
+			vec3 tmpe = vec3(bestHit.normal.x * -1, bestHit.normal.y * -1, bestHit.normal.z * -1);
+			bestHit.normal = tmpe;
 		}
 		return bestHit;
 	}
@@ -533,8 +575,8 @@ public:
 				vec3 V = normalize(-hit.position);
 				vec3 H = normalize(L + V);
 
-				float cosTheta = max(dot(hit.normal, L), 0.0f);
-				float cosDelta = max(dot(hit.normal, H), 0.0f);
+				float cosTheta = maxx(dot(hit.normal, L), 0.0f);
+				float cosDelta = maxx(dot(hit.normal, H), 0.0f);
 
 				outRad += hit.material->kd * src->Le * cosTheta;
 				outRad += hit.material->ks * src->Le * pow(cosDelta, hit.material->shininess);
@@ -553,8 +595,6 @@ public:
 				vec3 halfway = normalize(-ray.dir + light->direction);
 				float cosDelta = dot(hit.normal, halfway);
 				if (cosDelta > 0) outRadiance = outRadiance + light->Le * hit.material->ks * powf(cosDelta, hit.material->shininess);
-			} else {
-				outRadiance;
 			}
 		}
 		return outRadiance;

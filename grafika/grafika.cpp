@@ -46,7 +46,7 @@ vec3 refract(const vec3& I, const vec3& N, float eta) {
 	float etai = 1.0f, etat = eta;
 	vec3 n = N;
 
-	if (cosi < 0) {
+	if (cosi < 0.0f) {
 		cosi = -cosi;
 		std::swap(etai, etat);
 		n = -N;
@@ -108,7 +108,7 @@ struct Material {
 		case isRefractive:
 		{
 			vec3 eta = n;
-			vec3 kappa = k;
+			vec3 kappa = k;	
 
 			float clampedCosTheta = clampp(cosTheta, 0.0f, 1.0f);
 			float cos2 = clampedCosTheta * clampedCosTheta;
@@ -472,7 +472,7 @@ public:
 class Scene {
 	std::vector<Intersectable*> objects;
 	Camera* camera;
-	const vec3 La = vec3(0.2f, 0.2f, 0.2f);
+	const vec3 La = vec3(0.18f, 0.18f, 0.18f);
 	Light* light;
 	std::vector<Light*> lights;
 public:
@@ -500,22 +500,21 @@ public:
 
 		vec3 radiance = bestHit.material->ka * La;
 		vec3 r = bestHit.position;
-		vec3 N = normalize(bestHit.normal);
+		bool isOutside = dot(ray.dir, bestHit.normal) < 0;
+		vec3 N = normalize(isOutside ? bestHit.normal : -bestHit.normal);
 		vec3 V = -ray.dir;
 
 		if (bestHit.material->type == isRough) {
 			radiance += DirectLight(bestHit, ray);
 		}
 		if (bestHit.material->type == isReflective) {
-			// JPorta: error: ‘reflect’ was not declared in this scope
 			vec3 reflectDir = reflect(ray.dir, N);
 			Ray reflectRay(r + N * Epsilon, reflectDir, ray.out);
 			vec3 F = bestHit.material->fresnelReflectance(dot(V, N), bestHit.material->ks);
 			radiance += trace(reflectRay, d + 1) * F;
 		}
 		if (bestHit.material->type == isRefractive) {
-			float ior = ray.out ? bestHit.material->n.x : 1.0f / bestHit.material->n.x;
-			// JPorta: error: ‘refract’ was not declared in this scope
+			float ior = isOutside ? bestHit.material->n.x : 1.0f / bestHit.material->n.x;
 			vec3 refractionDir = refract(ray.dir, N, ior);
 
 			vec3 F = bestHit.material->fresnelReflectance(dot(V, N), bestHit.material->ks);
@@ -525,7 +524,7 @@ public:
 			radiance += trace(reflectRay, d + 1) * F;
 
 			if (length(refractionDir) > 0.0f) {
-				Ray refractRay(r - N * Epsilon, refractionDir, !ray.out);
+				Ray refractRay(r - N * Epsilon, refractionDir, !isOutside);
 				radiance += trace(refractRay, d + 1) * (vec3(1.0f) - F);
 			}
 		}
@@ -552,10 +551,6 @@ public:
 			if (hit.t > 0 && (bestHit.t < 0 || hit.t < bestHit.t)) {
 				bestHit = hit;
 			}
-		}
-		if (dot(ray.dir, bestHit.normal) > 0) {
-			vec3 tmpe = vec3(bestHit.normal.x * -1, bestHit.normal.y * -1, bestHit.normal.z * -1);
-			bestHit.normal = tmpe;
 		}
 		return bestHit;
 	}
@@ -617,17 +612,17 @@ public:
 		program = new GPUProgram(vertexSource, fragmentSource);
 		scene = new Scene();
 		camera = new Camera();
-		light = new Light(vec3(1.0f, 1.0f, 1.0f), vec3(2.0f, 2.0f, 2.0f));
+		light = new Light(vec3(1.0f, 1.0f, 1.0f), vec3(2.5f, 2.5f, 2.5f));
 
 		vec3 eye = vec3(0.0f, 1.0f, 4.0f), vup = vec3(0.0f, 1.0f, 0.0f), lookat = vec3(0.0f, 0.0f, 0.0f);
 		float fov = M_PI_4;
 		camera->set(eye, lookat, vup, fov);
 		scene->addLight(light);
 		scene->addLightSource(light);
-		scene->addLightSource(new Light(vec3(1.0f, 1.0f, 1.0f), vec3(-0.4f, -0.4f, -0.4f)));
+		scene->addLightSource(new Light(vec3(1.0f, 1.0f, 1.0f), vec3(-0.2f, -0.2f, -0.2f)));
 
 		Material* gold = new Material(vec3(0.0f), vec3(1.0f), 0.0f, vec3(0.17f, 0.35f, 1.5f), vec3(3.1f, 2.7f, 1.9f), isReflective); // arany.v2
-		Material* water = new Material(vec3(0.0f), vec3(1.0f), 0.0f, vec3(1.33f, 1.33f, 1.33f), vec3(0.0f), isRefractive); // viz
+		Material* water = new Material(vec3(0.0f), vec3(1.0f), 0.0f, vec3(1.5f, 1.33f, 2.0f), vec3(0.0f), isRefractive); // viz
 		Material* white = new Material(vec3(0.3f, 0.3f, 0.3f), vec3(0.0f), 0.0f); // fehér
 		Material* blue = new Material(vec3(0.0f, 0.1f, 0.3f), vec3(0.0f), 0.0f); // kék
 		Material* yellowPlastic = new Material(vec3(0.3f, 0.2f, 0.1f), vec3(2.0f, 2.0f, 2.0f), 50.0f, vec3(0.0f), vec3(0.0f), isRough); // sárga műanyag

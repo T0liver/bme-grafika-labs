@@ -17,14 +17,12 @@ const char* vertSource = R"(
 	out vec3 wNormal;
 	out vec3 wView;
 	out vec3 wLight;
-	out vec3 wPos;
 
 	void main() {
 		gl_Position = MVP * vec4(vtxPos, 1.0);
-		vec4 worldPos = M * vec4(vtxPos, 1.0);
-		wPos = worldPos.xyz / worldPos.w;
-		wLight = wLiPos.xyz * worldPos.w - worldPos.xyz * wLiPos.w;
-		wView = wEye - wPos;
+		vec4 wPos = M * vec4(vtxPos, 1.0);
+		wLight = wLiPos.xyz * wPos.w - wPos.xyz * wLiPos
+		wView = wEye - wPos.xyz/wPos.w;
 		wNormal = (vec4(vtxNorm, 0.0) * Minv).xyz;
 	}
 )";
@@ -32,13 +30,67 @@ const char* vertSource = R"(
 // pixel árnyaló
 const char* fragSource = R"(
 	#version 330
-    precision highp float;
+	uniform vec3 kd, ks, ka;
+	uniform float shine;
+	uniform vec3 La, Le;
 
-	uniform vec3 color;			// konstans szín
-	out vec4 fragmentColor;		// pixel szín
+	uniform int triangleCount;
+	uniform vec3 triangles[512 * 3];
+
+	in vec3 wNormal;
+	in vec3 wView;
+	in vec3 wLight;
+	out vec4 fragmentColor;
+
+	bool intersectTriangle(vec3 orig, vec3 dir, vec3 v0, vec3 v1, vec3 v2, out float t) {
+		vec3 edge1 = v1 - v0;
+		vec3 edge2 = v2 - v0;
+		vec3 h = cross(dir, edge2);
+		float a = dot(edge1, h);
+		if (abs(a) < 1e-5) return false;
+
+		float f = 1.0 / a;
+		vec3 s = orig - v0;
+		float u = f * dot(s, h);
+		if (u < 0.0 || u > 1.0) return false;
+
+		vec3 q = cross(s, edge1);
+		float v = f * dot(dir, q);
+		if (v < 0.0 || u + v > 1.0) return false;
+
+		t = f * dot(edge2, q);
+		return (t > 1e-3);
+	}
+
+	bool inShadow(vec3 origin, vec3 lightDir) {
+		float t;
+		for (int i = 0; i < triangleCount; ++i) {
+			vec3 v0 = triangles[i * 3 + 0];
+			vec3 v1 = triangles[i * 3 + 1];
+			vec3 v2 = triangles[i * 3 + 2];
+			if (intersectTriangle(origin + lightDir * 1e-4, lightDir, v0, v1, v2, t)) {
+				return true;
+			}
+		}
+		return false;
+	}
 
 	void main() {
-		fragmentColor = vec4(color, 1); // RGB -> RGBA
+		vec3 N = normalize(wNormal);
+		vec3 V = normalize(wView);
+		vec3 L = normalize(wLight);
+		vec3 H = normalize(L + V);
+		float cost = max(dot(N,L), 0);
+		float cosd = max(dot(N,H), 0);
+
+		bool shadowed = inShadow(wPos, normalize(wLight));
+
+		vec3 color = ka * La;
+		if (!shadowed) {
+			color += kd * cost * Le + ks * pow(cosd, shine) * Le;
+		}
+
+		fragmentColor = vec4(color, 1.0);
 	}
 )";
 
@@ -54,29 +106,6 @@ struct Material {
 	vec3 fresnelReflectance(const float cosTheta, const vec3 F0) const {
 		float clampedCosTheta = clamp(cosTheta, 0.0f, 1.0f);
 		return F0 + (vec3(1.0f) - F0) * pow(1.0f - clampedCosTheta, 5.0f);
-	}
-};
-
-struct Hit {
-	float t;
-	vec3 position, normal;
-	Material* material;
-	Hit() : t(-1) {}
-};
-
-struct Ray {
-	vec3 start, dir;
-	bool out;
-	Ray(vec3 _start, vec3 _dir) : start(_start), dir(normalize(_dir)) {}
-	Ray(vec3 _start, vec3 _dir, bool _out) : start(_start), dir(normalize(_dir)), out(_out) {}
-};
-
-struct Light {
-	vec3 direction;
-	vec3 Le;
-	Light(vec3 _direction, vec3 _Le) {
-		direction = normalize(_direction);
-		Le = _Le;
 	}
 };
 
@@ -217,39 +246,28 @@ public:
 };
 
 class Camera {
-	vec3 eye, lookat, right, up, vupWorld;
-	float fov;
+	vec3 wEye, wLookat, wVup;
+	float fov, asp, fp, bp;
 public:
-	void set(vec3 _eye, vec3 _lookat, vec3 _vup, float _fov) {
-		eye = _eye; lookat = _lookat; fov = _fov;
-		vupWorld = _vup;
-		vec3 w = eye - lookat;
-		float windowSize = length(w) * tanf(fov / 2);
-		right = normalize(cross(_vup, w)) * (float)windowSize * (float)windowWidth / (float)windowHeight;
-		up = normalize(cross(w, right)) * windowSize;
+	Camera() {
+		asp = (float)windowWidth / windowHeight;
+		fov = 40.0f * (float)M_PI / 180.0f;
+		fp = 1;
+		bp = 20;
 	}
 
-	Ray getRay(int X, int Y) {
-		vec3 dir = lookat + right * (2.0f * (X + 0.5f) / windowWidth - 1.0f) + up * (2.0f * (Y + 0.5f) / windowHeight - 1.0f) - eye;
-		return Ray(eye, dir);
-	}
+	mat4 V() { return lookAt(wEye, wLookat, wVup); }
 
-	void Animate(float dt) {
-		vec3 d = eye - lookat;
-		eye = vec3(d.x * cos(dt) + d.z * sin(dt), d.y, -d.x * sin(dt) + d.z * cos(dt)) + lookat;
-		set(eye, lookat, up, fov);
-	}
+	mat4 P() { return perspective(fov, asp, fp, bp); }
 
 	void Spin(const float angle = M_PI_4) {
-		vec3 d = eye - lookat;
+		vec3 d = wEye - wLookat;
 
-		eye = vec3(
+		wEye = vec3(
 			d.x * cos(angle) + d.z * sin(angle),
 			d.y,
 			-d.x * sin(angle) + d.z * cos(angle)
-		) + lookat;
-
-		set(eye, lookat, vupWorld, fov);
+		) + wLookat;
 	}
 };
 

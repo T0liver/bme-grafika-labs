@@ -66,20 +66,15 @@ struct Light {
 	}
 };
 
+struct Triangle {
+	vec3 p0, p1, p2;
+};
+
 class Object3D {
 protected:
 	unsigned int vao, vbo;
 	std::vector<vec3> vtx;
-
-	void uploadToGPU() {
-		bind();
-		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, vtx.size() * sizeof(glm::vec3), vtx.data(), GL_STATIC_DRAW);
-
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-		unbind();
-	}
+	std::vector<Triangle> triangles;
 
 public:
 	Object3D() {
@@ -99,6 +94,34 @@ public:
 	}
 
 	virtual void tessellate() = 0;
+
+	void uploadToGPU() {
+		std::vector<glm::vec3> triVtx;
+		for (const Triangle& tri : triangles) {
+			triVtx.push_back(tri.p0);
+			triVtx.push_back(tri.p1);
+			triVtx.push_back(tri.p2);
+		}
+		vtx = triVtx;
+
+		glBindVertexArray(vao);
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		glBufferData(GL_ARRAY_BUFFER, triVtx.size() * sizeof(vec3), triVtx.data(), GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void*)0);
+		glBindVertexArray(0);
+	}
+
+	void uploadAsUniform(unsigned int shader, const mat4& mMtx, const std::string& uniformName) {
+		std::vector<vec3> worldVtx;
+		for (const Triangle& tri : triangles) {
+			worldVtx.push_back(mMtx * vec4(tri.p0, 1.0f));
+			worldVtx.push_back(mMtx * vec4(tri.p1, 1.0f));
+			worldVtx.push_back(mMtx * vec4(tri.p2, 1.0f));
+		}
+
+		glUniform3fv(glGetUniformLocation(shader, uniformName.c_str()), worldVtx.size(), &worldVtx[0].x);
+	}
 };
 
 class Cylinder : public Object3D {

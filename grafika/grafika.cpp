@@ -5,13 +5,27 @@ const vec3 bgColor(0.4f, 0.4f, 0.4f);
 
 // csúcspont árnyaló
 const char* vertSource = R"(
-	#version 330				
-    precision highp float;
+	#version 330 core
 
-	layout(location = 0) in vec2 cP;	// 0. bemeneti regiszter
+	uniform mat4 MVP, M, Minv;
+	uniform vec4 wLiPos;
+	uniform vec3 wEye;
+
+	layout(location = 0) in vec3 vtxPos;
+	layout(location = 1) in vec3 vtxNorm;
+
+	out vec3 wNormal;
+	out vec3 wView;
+	out vec3 wLight;
+	out vec3 wPos;
 
 	void main() {
-		gl_Position = vec4(cP.x, cP.y, 0, 1); 	// bemenet már normalizált eszközkoordinátákban
+		gl_Position = MVP * vec4(vtxPos, 1.0);
+		vec4 worldPos = M * vec4(vtxPos, 1.0);
+		wPos = worldPos.xyz / worldPos.w;
+		wLight = wLiPos.xyz * worldPos.w - worldPos.xyz * wLiPos.w;
+		wView = wEye - wPos;
+		wNormal = (vec4(vtxNorm, 0.0) * Minv).xyz;
 	}
 )";
 

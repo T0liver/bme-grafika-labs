@@ -1,6 +1,6 @@
 #include "framework.h"
 
-const int windowWidth = 600, windowHeight = 600;
+const int windowWidth = 1200, windowHeight = 600;
 const float Epsilon = 0.0001f;
 const int maxdepth = 5;
 const vec3 bgColor(0.4f, 0.4f, 0.4f);
@@ -604,7 +604,7 @@ class RaytraceApp : public glApp {
 	FullScreenTexturedQuad* quad;
 	std::vector<vec3> image;
 public:
-	RaytraceApp() : glApp("Ray tracing") {}
+	RaytraceApp() : glApp(3, 3, windowWidth, windowHeight, "Ray tracing") {}
 
 	void onInitialization() override {
 		glViewport(0, 0, windowWidth, windowHeight);

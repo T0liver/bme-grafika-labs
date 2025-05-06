@@ -1,6 +1,3 @@
-//=============================================================================================
-// Alap grafika kód: A framework.h osztályait felhasználó megoldás
-//=============================================================================================
 #include "framework.h"
 
 // csúcspont árnyaló
@@ -30,10 +27,10 @@ const char* fragSource = R"(
 
 const int winWidth = 600, winHeight = 600;
 
-class GrafikaApp : public glApp {
+class Kepszintezis : public glApp {
 	GPUProgram* gpuProgram;	   // csúcspont és pixel árnyalók
 public:
-	GrafikaApp() : glApp("Grafika") {}
+	Kepszintezis() : glApp("Inkrementalas") {}
 
 	// Inicializáció, 
 	void onInitialization() {
@@ -48,5 +45,5 @@ public:
 	}
 };
 
-GrafikaApp app;
+Kepszintezis app;
 

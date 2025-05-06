@@ -101,6 +101,84 @@ public:
 	virtual void tessellate() = 0;
 };
 
+class Cylinder : public Object3D {
+	int slices;
+	float height, radius;
+
+public:
+	Cylinder(float _height, float _radius, int _slices = 32) : slices(_slices), height(_height), radius(_radius) {
+		tessellate();
+		uploadToGPU();
+	}
+
+	void tessellate() override {
+		vtx.clear();
+		float halfHeight = height / 2.0f;
+		for (int i = 0; i <= slices; ++i) {
+			float theta = 2.0f * M_PI * (float(i) / float(slices));
+			float x = radius * cos(theta);
+			float z = radius * sin(theta);
+			// vtx.push_back(vec3(x, -halfHeight, z));
+			// vtx.push_back(vec3(x, halfHeight, z));
+			vtx.push_back(vec3(x, z, -halfHeight));
+			vtx.push_back(vec3(x, z, halfHeight));
+		}
+	}
+};
+
+class Cone : public Object3D {
+	int slices;
+	float height, radius;
+
+public:
+	Cone(float _height, float _radius, int _slices = 32) : slices(_slices), height(_height), radius(_radius) {
+		tessellate();
+		uploadToGPU();
+	}
+
+	void tessellate() override {
+		vtx.clear();
+		float halfHeight = height / 2.0f;
+		vec3 top(0, 0, halfHeight);
+		vec3 center(0, 0, -halfHeight);
+
+		for (int i = 0; i <= slices; ++i) {
+			float theta = 2.0f * M_PI * (float(i) / float(slices));
+			float x = radius * cos(theta);
+			float y = radius * sin(theta);
+			vec3 base(x, y, -halfHeight);
+
+			vtx.push_back(top);
+			vtx.push_back(base);
+
+			float nextTheta = 2.0f * M_PI * (float(i + 1) / float(slices));
+			float nextX = radius * cos(nextTheta);
+			float nextY = radius * sin(nextTheta);
+			vec3 nextBase(nextX, nextY, -halfHeight);
+
+			vtx.push_back(nextBase);
+		}
+	}
+};
+
+class Quad : public Object3D {
+	float size;
+public:
+	Quad(float _size) : size(_size) {
+		tessellate();
+		uploadToGPU();
+	}
+
+	void tessellate() override {
+		vtx.clear();
+		float halfSize = size / 2.0f;
+		vtx.push_back(vec3(-halfSize, -halfSize, 0));
+		vtx.push_back(vec3(halfSize, -halfSize, 0));
+		vtx.push_back(vec3(halfSize, halfSize, 0));
+		vtx.push_back(vec3(-halfSize, halfSize, 0));
+	}
+};
+
 class Camera {
 	vec3 eye, lookat, right, up, vupWorld;
 	float fov;

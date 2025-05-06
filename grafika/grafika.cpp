@@ -66,12 +66,39 @@ struct Light {
 	}
 };
 
-
-class Intersectable {
+class Object3D {
 protected:
-	Material* material;
+	unsigned int vao, vbo;
+	std::vector<vec3> vtx;
+
+	void uploadToGPU() {
+		bind();
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		glBufferData(GL_ARRAY_BUFFER, vtx.size() * sizeof(glm::vec3), vtx.data(), GL_STATIC_DRAW);
+
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+		unbind();
+	}
+
 public:
-	virtual Hit intersect(const Ray& ray) = 0;
+	Object3D() {
+		glGenVertexArrays(1, &vao);
+		glGenBuffers(1, &vbo);
+	}
+	virtual ~Object3D() {
+		glDeleteBuffers(1, &vbo);
+		glDeleteVertexArrays(1, &vao);
+	}
+
+	void bind() const {
+		glBindVertexArray(vao);
+	}
+	void unbind() const {
+		glBindVertexArray(0);
+	}
+
+	virtual void tessellate() = 0;
 };
 
 class Camera {

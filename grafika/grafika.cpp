@@ -158,8 +158,7 @@ public:
 		material->uploadGPU(gpuProg);
 		glPointSize(10.0f);
 		for (unsigned int i = 0; i < nStrips; i++)
-			glDrawArrays(GL_POINTS, 0, 1);
-			//glDrawArrays(GL_POINTS, i * nVtxInStrip, nVtxInStrip);
+			glDrawArrays(GL_TRIANGLES, i * nVtxInStrip, nVtxInStrip);
 	}
 
 
@@ -180,22 +179,6 @@ public:
 		VtxData vtx;
 		vtx.pos = (1 - u - v) * p1 + u * p2 + v * p3;
 		vtx.normal = normalize(cross(p2 - p1, p3 - p1));
-		vtx.texcoord = vec2(u, v);
-		return vtx;
-	}
-};
-
-class Point : public Object3D {
-	vec3 p;
-public:
-	Point(vec3 _p, Material* _material)
-		: p(_p) {
-		setMaterial(_material);
-	}
-	VtxData GenVtxData(float u, float v) override {
-		VtxData vtx;
-		vtx.pos = p;
-		vtx.normal = vec3(1.0f, 1.0f, 1.0f);
 		vtx.texcoord = vec2(u, v);
 		return vtx;
 	}
@@ -272,10 +255,6 @@ public:
 		cyl = new Cylinder(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), 1.0f, 2.0f, gold);
 		cyl->create(12, 8);
 		objects.push_back(cyl);
-
-		point = new Point(vec3(0.0f, 0.0f, 1.0f), blue);
-		point->create(1, 1);
-		objects.push_back(point);
 
 		triangle = new Triangle(vec3(0.0f, 0.0f, 1.0f), vec3(1.0f, 0.0f, 1.0f), vec3(0.0f, 1.0f, 1.0f), blue);
 		triangle->create(1, 1);

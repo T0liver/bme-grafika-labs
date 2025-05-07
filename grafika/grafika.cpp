@@ -1,31 +1,23 @@
 #include "framework.h"
 
 const int windowWidth = 600, windowHeight = 600;
-const vec3 bgColor(0.4f, 0.4f, 0.4f);
 
 // csúcspont árnyaló
 const char* vertSource = R"(
-	#version 330 core
+	#version 330
 
-	uniform mat4 MVP, M, Minv;
-	uniform vec4 wLiPos;
-	uniform vec3 wEye;
+	uniform mat4 M, Minv, MVP;
 
 	layout(location = 0) in vec3 vtxPos;
 	layout(location = 1) in vec3 vtxNorm;
 
-	out vec3 wNormal;
-	out vec3 wView;
-	out vec3 wLight;
-	out vec3 wPos;
+	out vec3 color;
 
 	void main() {
-		gl_Position = MVP * vec4(vtxPos, 1.0);
-		vec4 worldPos = M * vec4(vtxPos, 1.0);
-		wPos = worldPos.xyz / worldPos.w;
-		wLight = wLiPos.xyz * worldPos.w - worldPos.xyz * wLiPos.xzy;
-		wView = wEye - worldPos.xyz/worldPos.w;
-		wNormal = (vec4(vtxNorm, 0.0) * Minv).xyz;
+		gl_Position = MVP * vec4(vtxPos, 1);
+		vec4 wPos = M * vec4(vtxPos, 1);
+		vec4 wNormal = vec4(vtxNorm, 0) * Minv;
+		color = Illumination(wPos, wNormal);
 	}
 )";
 
@@ -36,13 +28,10 @@ const char* fragSource = R"(
 	uniform float shine;
 	uniform vec3 La, Le;
 
-	uniform int triangleCount;
-	uniform vec3 triangles[512 * 2];
-
 	in vec3 wNormal;
 	in vec3 wView;
 	in vec3 wLight;
-	in vec3 wPos;
+	// in vec3 wPos;
 	out vec4 fragmentColor;
 
 	bool intersectTriangle(vec3 orig, vec3 dir, vec3 v0, vec3 v1, vec3 v2, out float t) {
@@ -83,6 +72,7 @@ const char* fragSource = R"(
 		vec3 V = normalize(wView);
 		vec3 L = normalize(wLight);
 		vec3 H = normalize(L + V);
+
 		float cost = max(dot(N,L), 0);
 		float cosd = max(dot(N,H), 0);
 
@@ -93,47 +83,22 @@ const char* fragSource = R"(
 			color += kd * cost * Le + ks * pow(cosd, shine) * Le;
 		}
 
-		fragmentColor = vec4(color, 1.0);
+		fragmentColor = vec4(color, 1);
 	}
 )";
-
-mat4 rotationTo(const vec3 from, const vec3 to) {
-	vec3 f = normalize(from);
-	vec3 t = normalize(to);
-	float cosTheta = dot(f, t);
-
-	if (cosTheta > 0.9999f) return mat4(1.0f);           // már közel azonos irány
-	if (cosTheta < -0.9999f) {                            // 180 fokos elforgatás
-		vec3 orthogonal = normalize(cross(f, vec3(1.0f, 0.0f, 0.0f)));
-		if (length(orthogonal) < 1e-4f)
-			orthogonal = normalize(cross(f, vec3(0.0f, 1.0f, 0.0f)));
-		return rotate(mat4(1.0f), float(M_PI), orthogonal);
-	}
-
-	vec3 axis = normalize(cross(f, t));
-	float angle = acos(clamp(cosTheta, -1.0f, 1.0f));
-	return rotate(mat4(1.0f), angle, axis);
-}
 
 struct Material {
 	vec3 ka, kd, ks;
 	float shininess;
 	Material() {}
 	Material(vec3 _kd, vec3 _ks, float _shininess)
-		: ka(_kd* (float)M_PI), kd(_kd), ks(_ks),shininess(_shininess) {
+		: ka(_kd* (float)M_PI), kd(_kd), ks(_ks), shininess(_shininess) {
 	}
 	~Material() {}
 
 	vec3 fresnelReflectance(const float cosTheta, const vec3 F0) const {
 		float clampedCosTheta = clamp(cosTheta, 0.0f, 1.0f);
 		return F0 + (vec3(1.0f) - F0) * pow(1.0f - clampedCosTheta, 5.0f);
-	}
-
-	void upload(GPUProgram* shaderProg, const std::string& uniformNamePrefix) const {
-		shaderProg->setUniform(ka, uniformNamePrefix + "ka");
-		shaderProg->setUniform(kd, uniformNamePrefix + "kd");
-		shaderProg->setUniform(ks, uniformNamePrefix + "ks");
-		shaderProg->setUniform(shininess, uniformNamePrefix + "shine");
 	}
 };
 
@@ -154,7 +119,6 @@ public:
 
 	vec3 getEye() const { return wEye; }
 
-
 	void Spin(const float angle = M_PI_4) {
 		vec3 d = wEye - wLookat;
 
@@ -166,179 +130,60 @@ public:
 	}
 };
 
-struct Triangle {
-	vec3 p0, p1, p2;
+struct VtxData {
+	vec3 pos, normal;
+	vec2 texcoord;
 };
 
 class Object3D {
-protected:
 	unsigned int vao, vbo;
-	std::vector<vec3> vtx;
-	std::vector<Triangle> triangles;
-	std::vector<vec3> normals;
-
+	std::vector<VtxData> vtx;
+	int nVtxInStrip, nStrips;
 public:
-	Material material;
-	mat4 transform = mat4(1.0f);
-
 	Object3D() {
-		glGenVertexArrays(1, &vao);
-		glGenBuffers(1, &vbo);
+		glEnableVertexAttribArray(0); // 0. regiszter = pozíció
+		glEnableVertexAttribArray(1); // 1. regiszter = normál vektor
+		glEnableVertexAttribArray(2); // 2. regiszter = textúra koordináta
+		int nb = sizeof(VtxData);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, nb, (void*)offsetof(VtxData, pos));
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, nb, (void*)offsetof(VtxData, normal));
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, nb, (void*)offsetof(VtxData, texcoord));
 	}
+
+	virtual VtxData GenVtxData(float u, float v) = 0;
+
+	void updateGPU() {
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		glBufferData(GL_ARRAY_BUFFER, vtx.size() * sizeof(VtxData), &vtx[0], GL_DYNAMIC_DRAW);
+	}
+
+	void bind() {
+		glBindVertexArray(vao);
+	}
+
+
+	void create(int M, int N) {
+		nVtxInStrip = (M + 1) * 2;
+		nStrips = N;
+		for (int i = 0; i < N; i++) {
+			for (int j = 0; j <= M; j++) {
+				vtx.push_back(GenVtxData((float)j / M, (float)i / N));
+				vtx.push_back(GenVtxData((float)j / M, (float)(i + 1) / N));
+			}
+		}
+		updateGPU();
+	}
+
+	void draw() {
+		bind();
+		for (unsigned int i = 0; i < nStrips; i++)
+			glDrawArrays(GL_TRIANGLE_STRIP, i * nVtxInStrip, nVtxInStrip);
+	}
+
+
 	virtual ~Object3D() {
 		glDeleteBuffers(1, &vbo);
 		glDeleteVertexArrays(1, &vao);
-	}
-
-	void bind() const {
-		glBindVertexArray(vao);
-	}
-	void unbind() const {
-		glBindVertexArray(0);
-	}
-
-	virtual void tessellate() = 0;
-
-	// vpMtx = camera->P() * camera->V()
-	void draw(GPUProgram* shader, const mat4& vpMtx) {
-		mat4 M = transform;
-		mat4 Minv = inverse(transform);
-		mat4 mvp = vpMtx * M;
-
-		shader->setUniform(M, "M");
-		shader->setUniform(Minv, "Minv");
-		shader->setUniform(mvp, "MVP");
-
-		material.upload(shader, "");
-
-		glBindVertexArray(vao);
-		glDrawArrays(GL_TRIANGLES, 0, vtx.size());
-		glBindVertexArray(0);
-	}
-
-	void uploadToGPU() {
-		glBindVertexArray(vao);
-		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-
-		std::vector<glm::vec3> data;
-		for (size_t i = 0; i < vtx.size(); ++i) {
-			data.push_back(vtx[i]);
-			data.push_back(normals[i]);
-		}
-
-		glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(vec3), data.data(), GL_STATIC_DRAW);
-
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 2 * sizeof(vec3), (void*)0);
-		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 2 * sizeof(vec3), (void*)(sizeof(vec3)));
-
-		glBindVertexArray(0);
-	}
-
-	void uploadAsUniform(GPUProgram* shaderProg, const mat4& mMtx, const std::string& uniformName) {
-		std::vector<vec3> worldVtx;
-		for (const Triangle& tri : triangles) {
-			worldVtx.push_back(vec3(mMtx * vec4(tri.p0, 1.0f)));
-			worldVtx.push_back(vec3(mMtx * vec4(tri.p1, 1.0f)));
-			worldVtx.push_back(vec3(mMtx * vec4(tri.p2, 1.0f)));
-		}
-
-		// shaderProg->Use();
-		unsigned int loc;
-		glGetIntegerv(GL_CURRENT_PROGRAM, (GLint*)&loc);
-		glUniform3fv(glGetUniformLocation(loc, uniformName.c_str()), worldVtx.size(), &worldVtx[0].x);
-	}
-};
-
-
-class Cylinder : public Object3D {
-	int slices;
-	float height, radius;
-	vec3 base, axis;
-
-public:
-	Cylinder(vec3 _base, vec3 _axis, float _height, float _radius, Material _material, int _slices = 32) : slices(_slices), height(_height), radius(_radius), base(_base), axis(normalize(_axis)) {
-		material = _material;
-		tessellate();
-		mat4 R = rotationTo(vec3(0.0f, 0.0f, 1.0f), axis);
-		mat4 T = translate(mat4(1.0f), base);
-		transform = T * R;
-
-		uploadToGPU();
-	}
-
-	void tessellate() override {
-		vtx.clear();
-		normals.clear();
-		float halfHeight = height / 2.0f;
-		for (int i = 0; i <= slices; ++i) {
-			float theta = 2.0f * M_PI * (float(i) / float(slices));
-			float x = radius * cos(theta);
-			float y = radius * sin(theta);
-			vec3 norm(cos(theta), sin(theta), 0.0f);
-			vec3 btn(x, y, -halfHeight);
-			vec3 top(x, y, halfHeight);
-
-			vtx.push_back(btn);
-			normals.push_back(norm);
-
-			vtx.push_back(top);
-			normals.push_back(norm);
-		}
-	}
-};
-
-class Cone : public Object3D {
-	int slices;
-	float height, radius;
-
-public:
-	Cone(float _height, float _radius, int _slices = 32) : slices(_slices), height(_height), radius(_radius) {
-		tessellate();
-		uploadToGPU();
-	}
-
-	void tessellate() override {
-		vtx.clear();
-		float halfHeight = height / 2.0f;
-		vec3 top(0, 0, halfHeight);
-		vec3 center(0, 0, -halfHeight);
-
-		for (int i = 0; i <= slices; ++i) {
-			float theta = 2.0f * M_PI * (float(i) / float(slices));
-			float x = radius * cos(theta);
-			float y = radius * sin(theta);
-			vec3 base(x, y, -halfHeight);
-
-			vtx.push_back(top);
-			vtx.push_back(base);
-
-			float nextTheta = 2.0f * M_PI * (float(i + 1) / float(slices));
-			float nextX = radius * cos(nextTheta);
-			float nextY = radius * sin(nextTheta);
-			vec3 nextBase(nextX, nextY, -halfHeight);
-
-			vtx.push_back(nextBase);
-		}
-	}
-};
-
-class Quad : public Object3D {
-	float size;
-public:
-	Quad(float _size) : size(_size) {
-		tessellate();
-		uploadToGPU();
-	}
-
-	void tessellate() override {
-		vtx.clear();
-		float halfSize = size / 2.0f;
-		vtx.push_back(vec3(-halfSize, -halfSize, 0));
-		vtx.push_back(vec3(halfSize, -halfSize, 0));
-		vtx.push_back(vec3(halfSize, halfSize, 0));
-		vtx.push_back(vec3(-halfSize, halfSize, 0));
 	}
 };
 
@@ -370,7 +215,6 @@ class Kepszintezis : public glApp {
 	GPUProgram* gpuProg;	   // csúcspont és pixel árnyalók
 	Camera* camera;	   // kamera
 	FullScreenTexturedQuad* quad;
-	Cylinder* cyl;
 public:
 	Kepszintezis() : glApp("Inkrementalas") {}
 
@@ -383,14 +227,11 @@ public:
 		camera = new Camera(vec3(0.0f, 1.0f, 4.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f));
 
 		Material* gold = new Material(vec3(0.17f, 0.35f, 1.5f), vec3(3.1f, 2.7f, 1.9f), 0.0f);
-
-		cyl = new Cylinder(vec3(1.0f, -1.0f, 0.0f), vec3(0.1f, 1.0f, 0.0f), 2.0f, 0.3f, *gold);
 	}
 
 	void onKeyboard(int key) override {
 		if (key == 'a') {
 			camera->Spin();
-			// printf("You spin my head right round, right round... by [45] degrees\n");
 		}
 	}
 
@@ -399,18 +240,6 @@ public:
 		glClearColor(0.4f, 0.4f, 0.4f, 0.0f);     // háttér szín
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // rasztertár törlés
 		glViewport(0, 0, windowWidth, windowHeight);
-
-		vec4 wLiPos(1.0f, 1.0f, 1.0f, 2.0f);
-		gpuProg->setUniform(wLiPos, "wLiPos");
-		gpuProg->setUniform(camera->getEye(), "wEye");
-
-		vec3 Le(1.0f); // fény színe
-		vec3 La(0.2f); // ambient fény
-		gpuProg->setUniform(Le, "Le");
-		gpuProg->setUniform(La, "La");
-
-		cyl->draw(gpuProg, camera->V() * camera->P());
-		quad->Draw(gpuProg);
 	}
 };
 

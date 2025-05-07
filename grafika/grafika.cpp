@@ -6,18 +6,24 @@ const int windowWidth = 600, windowHeight = 600;
 const char* vertSource = R"(
 	#version 330
 
-	uniform mat4 M, Minv, MVP;
+	uniform mat4  MVP, M, Minv;
+	uniform vec4  wLiPos;
+	uniform vec3  wEye;
 
 	layout(location = 0) in vec3 vtxPos;
 	layout(location = 1) in vec3 vtxNorm;
 
-	out vec3 color;
-
+	/*out vec3 wNormal;
+	out vec3 wView;
+	out vec3 wLight;
+*/
 	void main() {
-		gl_Position = MVP * vec4(vtxPos, 1);
-		vec4 wPos = M * vec4(vtxPos, 1);
-		vec4 wNormal = vec4(vtxNorm, 0) * Minv;
-		color = Illumination(wPos, wNormal);
+	   gl_Position = MVP * vec4(vtxPos, 1); // to NDC
+
+	   /*vec4 wPos = M * vec4(vtxPos, 1);
+	   wLight  = wLiPos.xyz/wLiPos.w - wPos.xyz/wPos.w;
+	   wView   = wEye - wPos.xyz/wPos.w;
+	   wNormal = (vec4(vtxNorm, 0) * Minv).xyz;*/
 	}
 )";
 
@@ -27,67 +33,26 @@ const char* fragSource = R"(
 	uniform vec3 kd, ks, ka;
 	uniform float shine;
 	uniform vec3 La, Le;
-
-	in vec3 wNormal;
-	in vec3 wView;
-	in vec3 wLight;
-	// in vec3 wPos;
-	out vec4 fragmentColor;
-
-	bool intersectTriangle(vec3 orig, vec3 dir, vec3 v0, vec3 v1, vec3 v2, out float t) {
-		vec3 edge1 = v1 - v0;
-		vec3 edge2 = v2 - v0;
-		vec3 h = cross(dir, edge2);
-		float a = dot(edge1, h);
-		if (abs(a) < 1e-5) return false;
-
-		float f = 1.0 / a;
-		vec3 s = orig - v0;
-		float u = f * dot(s, h);
-		if (u < 0.0 || u > 1.0) return false;
-
-		vec3 q = cross(s, edge1);
-		float v = f * dot(dir, q);
-		if (v < 0.0 || u + v > 1.0) return false;
-
-		t = f * dot(edge2, q);
-		return (t > 1e-3);
-	}
-
-	bool inShadow(vec3 origin, vec3 lightDir) {
-		float t;
-		for (int i = 0; i < triangleCount; ++i) {
-			vec3 v0 = triangles[i * 3 + 0];
-			vec3 v1 = triangles[i * 3 + 1];
-			vec3 v2 = triangles[i * 3 + 2];
-			if (intersectTriangle(origin + lightDir * 1e-4, lightDir, v0, v1, v2, t)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
+/*
+	in  vec3 wNormal;
+	in  vec3 wView;
+	in  vec3 wLight;*/
+	out vec4 fragmentColor;     
+	
 	void main() {
-		vec3 N = normalize(wNormal);
-		vec3 V = normalize(wView);
-		vec3 L = normalize(wLight);
-		vec3 H = normalize(L + V);
-
-		float cost = max(dot(N,L), 0);
-		float cosd = max(dot(N,H), 0);
-
-		bool shadowed = inShadow(wPos, normalize(wLight));
-
-		vec3 color = ka * La;
-		if (!shadowed) {
-			color += kd * cost * Le + ks * pow(cosd, shine) * Le;
-		}
-
-		fragmentColor = vec4(color, 1);
+	   /*vec3 N = normalize(wNormal);
+	   vec3 V = normalize(wView);  
+	   vec3 L = normalize(wLight);
+	   vec3 H = normalize(L + V);
+	   float cost = max(dot(N,L), 0), cosd = max(dot(N,H), 0);
+	   // vec3 color = ka * La + (kd * cost + ks * pow(cosd,shine)) * Le;*/
+	   vec3 color = vec3(0.0f, 1.0f, 0.0f);
+	   fragmentColor = vec4(color, 1);
 	}
 )";
 
-struct Material {
+class Material {
+public:
 	vec3 ka, kd, ks;
 	float shininess;
 	Material() {}
@@ -96,9 +61,11 @@ struct Material {
 	}
 	~Material() {}
 
-	vec3 fresnelReflectance(const float cosTheta, const vec3 F0) const {
-		float clampedCosTheta = clamp(cosTheta, 0.0f, 1.0f);
-		return F0 + (vec3(1.0f) - F0) * pow(1.0f - clampedCosTheta, 5.0f);
+	void uploadGPU(GPUProgram* gpuProg) {
+		gpuProg->setUniform(ka, "ka");
+		gpuProg->setUniform(kd, "kd");
+		gpuProg->setUniform(ks, "ks");
+		gpuProg->setUniform(shininess, "shine");
 	}
 };
 
@@ -139,8 +106,16 @@ class Object3D {
 	unsigned int vao, vbo;
 	std::vector<VtxData> vtx;
 	int nVtxInStrip, nStrips;
+	Material* material;
 public:
 	Object3D() {
+		// Geometry
+		glGenVertexArrays(1, &vao);
+		glBindVertexArray(vao);
+		glGenBuffers(1, &vbo);
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+		// ParamSurface
 		glEnableVertexAttribArray(0); // 0. regiszter = pozíció
 		glEnableVertexAttribArray(1); // 1. regiszter = normál vektor
 		glEnableVertexAttribArray(2); // 2. regiszter = textúra koordináta
@@ -148,6 +123,10 @@ public:
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, nb, (void*)offsetof(VtxData, pos));
 		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, nb, (void*)offsetof(VtxData, normal));
 		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, nb, (void*)offsetof(VtxData, texcoord));
+	}
+
+	void setMaterial(Material* _material) {
+		material = _material;
 	}
 
 	virtual VtxData GenVtxData(float u, float v) = 0;
@@ -165,25 +144,61 @@ public:
 	void create(int M, int N) {
 		nVtxInStrip = (M + 1) * 2;
 		nStrips = N;
-		for (int i = 0; i < N; i++) {
+		/*for (int i = 0; i < N; i++) {
 			for (int j = 0; j <= M; j++) {
 				vtx.push_back(GenVtxData((float)j / M, (float)i / N));
 				vtx.push_back(GenVtxData((float)j / M, (float)(i + 1) / N));
 			}
-		}
+		}*/
+		VtxData v1 = VtxData(vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
+		VtxData v2 = VtxData(vec3(-1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
+		VtxData v3 = VtxData(vec3(0.0, 0.0, 1.0), vec3(0.0, 1.0, 0.0));
+		vtx.push_back(v1);
+		vtx.push_back(v2);
+		vtx.push_back(v3);
 		updateGPU();
 	}
 
-	void draw() {
+	void draw(GPUProgram* gpuProg) {
 		bind();
-		for (unsigned int i = 0; i < nStrips; i++)
-			glDrawArrays(GL_TRIANGLE_STRIP, i * nVtxInStrip, nVtxInStrip);
+		material->uploadGPU(gpuProg);
+		//for (unsigned int i = 0; i < nStrips; i++)
+		//	glDrawArrays(GL_TRIANGLE_STRIP, i * nVtxInStrip, nVtxInStrip);
+		glPointSize(10);
+		glDrawArrays(GL_POINTS, 0, 1);
 	}
 
 
 	virtual ~Object3D() {
 		glDeleteBuffers(1, &vbo);
 		glDeleteVertexArrays(1, &vao);
+	}
+};
+
+class Cylinder : public Object3D {
+	vec3 base, axis;
+	float radius, height;
+public:
+	Cylinder(vec3 _base, vec3 _axis, float _radius, float _height, Material* _material)
+		: base(_base), axis(normalize(_axis)), radius(_radius), height(_height) {
+		setMaterial(_material);
+	}
+
+	VtxData GenVtxData(float u, float v) override {
+		VtxData vtx;
+		float theta = u * 2.0f * M_PI;
+		vec3 tangent = normalize(cross(axis, vec3(0, 1, 0)));
+		if (length(tangent) < 1e-3f)
+			tangent = normalize(cross(axis, vec3(1, 0, 0)));
+		vec3 bitangent = normalize(cross(axis, tangent));
+
+		vec3 circlePos = radius * (cosf(theta) * tangent + sinf(theta) * bitangent);
+		vec3 heightOffset = v * height * axis;
+		vtx.pos = base + circlePos + heightOffset;
+		vtx.normal = normalize(circlePos);
+		vtx.texcoord = vec2(u, v);
+
+		return vtx;
 	}
 };
 
@@ -215,6 +230,7 @@ class Kepszintezis : public glApp {
 	GPUProgram* gpuProg;	   // csúcspont és pixel árnyalók
 	Camera* camera;	   // kamera
 	FullScreenTexturedQuad* quad;
+	Cylinder* cyl;
 public:
 	Kepszintezis() : glApp("Inkrementalas") {}
 
@@ -224,9 +240,11 @@ public:
 		glEnable(GL_DEPTH_TEST);
 		gpuProg = new GPUProgram(vertSource, fragSource);
 		quad = new FullScreenTexturedQuad();
-		camera = new Camera(vec3(0.0f, 1.0f, 4.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f));
+		camera = new Camera(vec3(0.0f, 0.0f, 4.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f));
 
 		Material* gold = new Material(vec3(0.17f, 0.35f, 1.5f), vec3(3.1f, 2.7f, 1.9f), 0.0f);
+		cyl = new Cylinder(vec3(0, 0, 0), vec3(0, 1, 0), 1.0f, 2.0f, gold);
+		cyl->create(12, 8);
 	}
 
 	void onKeyboard(int key) override {
@@ -237,9 +255,14 @@ public:
 
 	// Ablak újrarajzolás
 	void onDisplay() {
-		glClearColor(0.4f, 0.4f, 0.4f, 0.0f);     // háttér szín
+		glClearColor(0.4f, 0.4f, 0.4f, 1.0f);     // háttér szín
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // rasztertár törlés
 		glViewport(0, 0, windowWidth, windowHeight);
+		gpuProg->setUniform(camera->P() * camera->V(), "MVP");
+
+		cyl->draw(gpuProg);
+		GLenum en = glGetError();
+		printf("%d", en);
 	}
 };
 

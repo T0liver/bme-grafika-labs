@@ -13,17 +13,17 @@ const char* vertSource = R"(
 	layout(location = 0) in vec3 vtxPos;
 	layout(location = 1) in vec3 vtxNorm;
 
-	/*out vec3 wNormal;
+	out vec3 wNormal;
 	out vec3 wView;
 	out vec3 wLight;
-*/
-	void main() {
-	   gl_Position = MVP * vec4(vtxPos, 1); // to NDC
 
-	   /*vec4 wPos = M * vec4(vtxPos, 1);
+	void main() {
+	   gl_Position = MVP * vec4(vtxPos, 1);
+
+	   vec4 wPos = M * vec4(vtxPos, 1);
 	   wLight  = wLiPos.xyz/wLiPos.w - wPos.xyz/wPos.w;
 	   wView   = wEye - wPos.xyz/wPos.w;
-	   wNormal = (vec4(vtxNorm, 0) * Minv).xyz;*/
+	   wNormal = (vec4(vtxNorm, 0) * Minv).xyz;
 	}
 )";
 
@@ -33,20 +33,20 @@ const char* fragSource = R"(
 	uniform vec3 kd, ks, ka;
 	uniform float shine;
 	uniform vec3 La, Le;
-/*
+
 	in  vec3 wNormal;
 	in  vec3 wView;
-	in  vec3 wLight;*/
+	in  vec3 wLight;
 	out vec4 fragmentColor;     
 	
 	void main() {
-	   /*vec3 N = normalize(wNormal);
+	   vec3 N = normalize(wNormal);
 	   vec3 V = normalize(wView);  
 	   vec3 L = normalize(wLight);
 	   vec3 H = normalize(L + V);
 	   float cost = max(dot(N,L), 0), cosd = max(dot(N,H), 0);
-	   // vec3 color = ka * La + (kd * cost + ks * pow(cosd,shine)) * Le;*/
-	   vec3 color = vec3(0.0f, 1.0f, 0.0f);
+	   vec3 color = ka * La + (kd * cost + ks * pow(cosd,shine)) * Le;
+	   //vec3 color = vec3(0.0f, 1.0f, 0.0f);
 	   fragmentColor = vec4(color, 1);
 	}
 )";
@@ -144,34 +144,60 @@ public:
 	void create(int M, int N) {
 		nVtxInStrip = (M + 1) * 2;
 		nStrips = N;
-		/*for (int i = 0; i < N; i++) {
+		for (int i = 0; i < N; i++) {
 			for (int j = 0; j <= M; j++) {
 				vtx.push_back(GenVtxData((float)j / M, (float)i / N));
 				vtx.push_back(GenVtxData((float)j / M, (float)(i + 1) / N));
 			}
-		}*/
-		VtxData v1 = VtxData(vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
-		VtxData v2 = VtxData(vec3(-1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
-		VtxData v3 = VtxData(vec3(0.0, 0.0, 1.0), vec3(0.0, 1.0, 0.0));
-		vtx.push_back(v1);
-		vtx.push_back(v2);
-		vtx.push_back(v3);
+		}
 		updateGPU();
 	}
 
 	void draw(GPUProgram* gpuProg) {
 		bind();
 		material->uploadGPU(gpuProg);
-		//for (unsigned int i = 0; i < nStrips; i++)
-		//	glDrawArrays(GL_TRIANGLE_STRIP, i * nVtxInStrip, nVtxInStrip);
-		glPointSize(10);
-		glDrawArrays(GL_POINTS, 0, 1);
+		glPointSize(10.0f);
+		for (unsigned int i = 0; i < nStrips; i++)
+			glDrawArrays(GL_POINTS, 0, 1);
+			//glDrawArrays(GL_POINTS, i * nVtxInStrip, nVtxInStrip);
 	}
 
 
 	virtual ~Object3D() {
 		glDeleteBuffers(1, &vbo);
 		glDeleteVertexArrays(1, &vao);
+	}
+};
+
+class Triangle : public Object3D {
+	vec3 p1, p2, p3;
+public:
+	Triangle(vec3 _p1, vec3 _p2, vec3 _p3, Material* _material)
+		: p1(_p1), p2(_p2), p3(_p3) {
+		setMaterial(_material);
+	}
+	VtxData GenVtxData(float u, float v) override {
+		VtxData vtx;
+		vtx.pos = (1 - u - v) * p1 + u * p2 + v * p3;
+		vtx.normal = normalize(cross(p2 - p1, p3 - p1));
+		vtx.texcoord = vec2(u, v);
+		return vtx;
+	}
+};
+
+class Point : public Object3D {
+	vec3 p;
+public:
+	Point(vec3 _p, Material* _material)
+		: p(_p) {
+		setMaterial(_material);
+	}
+	VtxData GenVtxData(float u, float v) override {
+		VtxData vtx;
+		vtx.pos = p;
+		vtx.normal = vec3(1.0f, 1.0f, 1.0f);
+		vtx.texcoord = vec2(u, v);
+		return vtx;
 	}
 };
 
@@ -226,11 +252,50 @@ public:
 	~FullScreenTexturedQuad() { delete texture; }
 };
 
+class Scene {
+	std::vector<Object3D*> objects;
+	Camera* camera;
+public:
+	Scene(Camera* _camera) : camera(_camera) {}
+
+	void Build() {
+		// Scene objects
+		Cylinder* cyl;
+		Point* point;
+		Triangle* triangle;
+
+		// Materials
+		Material* gold = new Material(vec3(0.17f, 0.35f, 1.5f), vec3(3.1f, 2.7f, 1.9f), 0.0f);
+		Material* blue = new Material(vec3(0.0f, 0.0f, 1.0f), vec3(1.0f, 1.0f, 1.0f), 1.0f);
+		
+		// Creating objects
+		cyl = new Cylinder(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), 1.0f, 2.0f, gold);
+		cyl->create(12, 8);
+		objects.push_back(cyl);
+
+		point = new Point(vec3(0.0f, 0.0f, 1.0f), blue);
+		point->create(1, 1);
+		objects.push_back(point);
+
+		triangle = new Triangle(vec3(0.0f, 0.0f, 1.0f), vec3(1.0f, 0.0f, 1.0f), vec3(0.0f, 1.0f, 1.0f), blue);
+		triangle->create(1, 1);
+		objects.push_back(triangle);
+	}
+	void addObject(Object3D* obj) {
+		objects.push_back(obj);
+	}
+	void render(GPUProgram* gpuProg) {
+		for (auto obj : objects) {
+			obj->draw(gpuProg);
+		}
+	}
+};
+
 class Kepszintezis : public glApp {
 	GPUProgram* gpuProg;	   // csúcspont és pixel árnyalók
 	Camera* camera;	   // kamera
 	FullScreenTexturedQuad* quad;
-	Cylinder* cyl;
+	Scene* scene;
 public:
 	Kepszintezis() : glApp("Inkrementalas") {}
 
@@ -242,14 +307,14 @@ public:
 		quad = new FullScreenTexturedQuad();
 		camera = new Camera(vec3(0.0f, 0.0f, 4.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f));
 
-		Material* gold = new Material(vec3(0.17f, 0.35f, 1.5f), vec3(3.1f, 2.7f, 1.9f), 0.0f);
-		cyl = new Cylinder(vec3(0, 0, 0), vec3(0, 1, 0), 1.0f, 2.0f, gold);
-		cyl->create(12, 8);
+		scene = new Scene(camera);
+		scene->Build();
 	}
 
 	void onKeyboard(int key) override {
 		if (key == 'a') {
 			camera->Spin();
+			refreshScreen();
 		}
 	}
 
@@ -260,9 +325,7 @@ public:
 		glViewport(0, 0, windowWidth, windowHeight);
 		gpuProg->setUniform(camera->P() * camera->V(), "MVP");
 
-		cyl->draw(gpuProg);
-		GLenum en = glGetError();
-		printf("%d", en);
+		scene->render(gpuProg);
 	}
 };
 

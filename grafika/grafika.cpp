@@ -125,6 +125,27 @@ public:
 		wLookat = wEye + vec3(newViewDir);
 		wVup = normalize(cross(right, vec3(newViewDir)));
 	}
+
+	void Move(const int _dir) {
+		vec3 where;
+
+		switch (_dir) {
+		case 1: // balra
+			where = wEye + vec3(0.0f, 0.0f, 1.0f);
+			break;
+		case 2: // jobbra
+			where = wEye + vec3(0.0f, 0.0f, -1.0f);
+			break;
+		case 3: // elore
+			where = wEye + vec3(1.0f, 0.0f, 0.0f);
+			break;
+		case 4: // hatra
+			where = wEye + vec3(-1.0f, 0.0f, 1.0f);
+			break;
+		}
+
+		wEye = where;
+	}
 };
 
 //---------------------------
@@ -630,6 +651,10 @@ public:
 	void Turn(const int _dir, const float _angle = M_PI / 180.0f * 5.0f) {
 		camera.Turn(_dir, _angle);
 	}
+
+	void Move(const int _dir) {
+		camera.Move(_dir);
+	}
 };
 
 //---------------------------
@@ -674,6 +699,22 @@ public:
 		}
 		else if (key == 's') {
 			scene.Turn(3);
+			refreshScreen();
+		}
+		else if (key == 'f') {
+			scene.Move(1);
+			refreshScreen();
+		}
+		else if (key == 'h') {
+			scene.Move(2);
+			refreshScreen();
+		}
+		else if (key == 't') {
+			scene.Move(3);
+			refreshScreen();
+		}
+		else if (key == 'g') {
+			scene.Move(4);
 			refreshScreen();
 		}
 	}

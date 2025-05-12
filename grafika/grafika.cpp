@@ -157,8 +157,9 @@ public:
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	}
 };
-
+//---------------------------
 class CheckerTexture : public Texture {
+//---------------------------
 public:
 	CheckerTexture(int size = 20) : Texture(size, size) {
 		std::vector<vec4> image(size * size);
@@ -177,7 +178,9 @@ public:
 	}
 };
 
+//---------------------------
 class RoughTexture : public Texture {
+//---------------------------
 public:
 	RoughTexture(int size = 64) : Texture(size, size) {
 		std::vector<vec4> image(size * size);
@@ -195,6 +198,16 @@ public:
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	}
+};
+
+//---------------------------
+class SolidTexture : public Texture {
+//---------------------------
+public:
+	SolidTexture() : Texture(1, 1) {
+		std::vector<vec4> image(1, vec4(1.0f, 1.0f, 1.0f, 1.0f));
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_FLOAT, &image[0]);
 	}
 };
 
@@ -524,13 +537,19 @@ public:
 		yellowPlastic->ka = vec3(0.1f, 0.1f, 0.1f);
 		yellowPlastic->shininess = 50.0f;
 
+		Material* waterThing = new Material;
+		waterThing->kd = vec3(1.3f);
+		waterThing->ks = vec3(0.0f);
+		waterThing->ka = vec3(0.1f);
+		waterThing->shininess = 1.0f;
+
 		// Textures
 		Texture* texture4x8 = new CheckerBoardTexture(4, 8);
 		Texture* texture15x20 = new CheckerBoardTexture(15, 20);
 
 		Texture* boardTexture = new CheckerTexture(20);
 		Texture* roughTexture = new RoughTexture(64);
-
+		Texture* solidTexture = new SolidTexture();
 
 
 		// Geometries
@@ -558,17 +577,23 @@ public:
 		objects.push_back(checkerboard);
 
 		Object* yellowCylinder = new Object(phongShader, yellowPlastic, roughTexture, new Cylinder());
-		yellowCylinder->scaleVec = vec3(0.3f, 0.3f, 0.1f);
-		// yellowCylinder->translation = vec3(-1.0f, 0.0f, 0.0f);
-		yellowCylinder->translation = vec3(-1.0f, 0.0f, 0.0f) + 0.5f * 2.0f * normalize(vec3(0.0f, 1.0f, 0.1f)); // plusz tengellyel eltolás ??
+		yellowCylinder->scaleVec = vec3(0.3f, 0.6f, 0.1f);
+		yellowCylinder->translation = vec3(-1.0f, 0.0f, 0.0f);
 		yellowCylinder->rotationAxis = normalize(cross(vec3(0.0f, 0.0f, 1.0f), normalize(vec3(0.0f, 1.0f, 0.1f))));
 		yellowCylinder->rotationAngle = acos(dot(vec3(0.0f, 0.0f, 1.0f), normalize(vec3(0.0f, 1.0f, 0.1f))));
 		objects.push_back(yellowCylinder);
 
+		Object* waterCylinder = new Object(phongShader, yellowPlastic, solidTexture, new Cylinder());
+		waterCylinder->scaleVec = vec3(0.3f, 0.3f, 0.1f);
+		waterCylinder->rotationAxis = normalize(vec3(-0.2f, 1.0f, -0.1f));
+		waterCylinder->rotationAngle = 0.5f;
+		waterCylinder->translation = vec3(0.0f, -1.0f, -0.8f);
+		objects.push_back(waterCylinder);
+
 		// Camera
-		camera.wEye = vec3(0.0f, 0.0f, 8.0f);
-		camera.wLookat = vec3(0.0f, 0.0f, 0.0f);
-		camera.wVup = vec3(0.0f, 10.0f, 0.0f);
+		camera.wEye = vec3(0.0f, 1.0f, 4.0f);
+		camera.wLookat = vec3(0.0f, 0.0f, -1.0f);
+		camera.wVup = vec3(0.0f, 1.0f, 0.0f);
 
 		// Lights
 		lights.resize(3);
@@ -636,19 +661,19 @@ public:
 			refreshScreen();
 		}
 		else if (key == 'q') {
-			scene.Turn(1);
-			refreshScreen();
-		}
-		else if (key == 'e') {
 			scene.Turn(2);
 			refreshScreen();
 		}
+		else if (key == 'e') {
+			scene.Turn(1);
+			refreshScreen();
+		}
 		else if (key == 'w') {
-			scene.Turn(3);
+			scene.Turn(4);
 			refreshScreen();
 		}
 		else if (key == 's') {
-			scene.Turn(4);
+			scene.Turn(3);
 			refreshScreen();
 		}
 	}

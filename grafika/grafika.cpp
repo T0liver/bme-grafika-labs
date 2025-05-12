@@ -177,6 +177,27 @@ public:
 	}
 };
 
+class RoughTexture : public Texture {
+public:
+	RoughTexture(int size = 64) : Texture(size, size) {
+		std::vector<vec4> image(size * size);
+
+		for (int y = 0; y < size; ++y) {
+			for (int x = 0; x < size; ++x) {
+				float noise = float(rand()) / RAND_MAX;
+				vec3 color = vec3(0.3f + 0.1f * noise);
+				image[y * size + x] = vec4(color, 1.0f);
+			}
+		}
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size, size, 0, GL_RGBA, GL_FLOAT, &image[0]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	}
+};
+
 //---------------------------
 struct RenderState {
 //---------------------------
@@ -497,11 +518,19 @@ public:
 		boardMaterial->ka = vec3(0.0f);
 		boardMaterial->shininess = 1.0f;
 
+		Material* yellowPlastic = new Material;
+		yellowPlastic->kd = vec3(0.3f, 0.2f, 0.1f);
+		yellowPlastic->ks = vec3(2.0f, 2.0f, 2.0f);
+		yellowPlastic->ka = vec3(0.1f, 0.1f, 0.1f);
+		yellowPlastic->shininess = 50.0f;
+
 		// Textures
 		Texture* texture4x8 = new CheckerBoardTexture(4, 8);
 		Texture* texture15x20 = new CheckerBoardTexture(15, 20);
 
 		Texture* boardTexture = new CheckerTexture(20);
+		Texture* roughTexture = new RoughTexture(64);
+
 
 
 		// Geometries
@@ -516,7 +545,7 @@ public:
 		sphereObject1->scaleVec = vec3(0.5f, 1.2f, 0.5f);
 		objects.push_back(sphereObject1);
 
-		Object* sphereObject2 = new Object(phongShader, material1, texture4x8, cylinder);
+		Object* sphereObject2 = new Object(phongShader, material1, roughTexture, cylinder);
 		sphereObject2->translation = vec3(-1.0f, -1.0f, 0.0f);
 		sphereObject2->scaleVec = vec3(1.0f, 1.0f, 1.0f);
 		sphereObject2->rotationAxis = vec3(-0.2f, 1.0f, -0.1f);
@@ -527,6 +556,14 @@ public:
 		checkerboard->translation = vec3(0, 0, 0);
 		checkerboard->scaleVec = vec3(1.0f);
 		objects.push_back(checkerboard);
+
+		Object* yellowCylinder = new Object(phongShader, yellowPlastic, roughTexture, new Cylinder());
+		yellowCylinder->scaleVec = vec3(0.3f, 0.3f, 0.1f);
+		// yellowCylinder->translation = vec3(-1.0f, 0.0f, 0.0f);
+		yellowCylinder->translation = vec3(-1.0f, 0.0f, 0.0f) + 0.5f * 2.0f * normalize(vec3(0.0f, 1.0f, 0.1f)); // plusz tengellyel eltolás ??
+		yellowCylinder->rotationAxis = normalize(cross(vec3(0.0f, 0.0f, 1.0f), normalize(vec3(0.0f, 1.0f, 0.1f))));
+		yellowCylinder->rotationAngle = acos(dot(vec3(0.0f, 0.0f, 1.0f), normalize(vec3(0.0f, 1.0f, 0.1f))));
+		objects.push_back(yellowCylinder);
 
 		// Camera
 		camera.wEye = vec3(0.0f, 0.0f, 8.0f);

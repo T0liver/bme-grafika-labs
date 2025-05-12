@@ -461,17 +461,8 @@ public:
 };
 
 //---------------------------
-class Cylinder : public ParamSurface {
-//---------------------------
-public:
-	Cylinder() { create(); }
-	void eval(Dnum2& U, Dnum2& V, Dnum2& X, Dnum2& Y, Dnum2& Z) {
-		U = U * 2.0f * M_PI, V = V * 2 - 1.0f;
-		X = Cos(U); Y = Sin(U); Z = V;
-	}
-};
-
 class Plane : public ParamSurface {
+//---------------------------
 public:
 	Plane() { create(); }
 	void eval(Dnum2& U, Dnum2& V, Dnum2& X, Dnum2& Y, Dnum2& Z) {
@@ -481,6 +472,37 @@ public:
 		X = U;
 		Y = Dnum2(-1.0f);
 		Z = V;
+	}
+};
+
+//---------------------------
+class Cylinder : public ParamSurface {
+//---------------------------
+public:
+	Cylinder() { create(1, 6); } // oldalra 6 szelet
+
+	void eval(Dnum2& U, Dnum2& V, Dnum2& X, Dnum2& Y, Dnum2& Z) {
+		U = U * 2.0f * M_PI;
+		Dnum2 z = (V - 0.5f) * 4.0f;
+		X = Cos(U);
+		Y = Sin(U);
+		Z = z;
+	}
+};
+
+//---------------------------
+class Cone : public ParamSurface {
+//---------------------------
+public:
+	Cone() { create(1, 6); } // 6 szelet, 1 hosszanti szint
+
+	void eval(Dnum2& U, Dnum2& V, Dnum2& X, Dnum2& Y, Dnum2& Z) {
+		U = U * 2.0f * M_PI;
+
+		Dnum2 r = (Dnum2(1.0f) - V); // sugár csökken fentrol lefelé
+		X = r * Cos(U);
+		Y = r * Sin(U);
+		Z = V * 2.0f - 1.0f; // -1 (csúcs) - 1 (alap)
 	}
 };
 
@@ -558,6 +580,18 @@ public:
 		yellowPlastic->ka = vec3(0.1f, 0.1f, 0.1f);
 		yellowPlastic->shininess = 50.0f;
 
+		Material* cyanPlastic = new Material;
+		cyanPlastic->kd = vec3(0.1f, 0.2f, 0.3f);
+		cyanPlastic->ks = vec3(2.0f);
+		cyanPlastic->ka = vec3(0.1f);
+		cyanPlastic->shininess = 100.0f;
+
+		Material* magentaPlastic = new Material;
+		magentaPlastic->kd = vec3(0.3f, 0.0f, 0.2f);
+		magentaPlastic->ks = vec3(2.0f);
+		magentaPlastic->ka = vec3(0.1f);
+		magentaPlastic->shininess = 20.0f;
+
 		Material* waterThing = new Material;
 		waterThing->kd = vec3(1.3f);
 		waterThing->ks = vec3(0.0f);
@@ -578,38 +612,59 @@ public:
 		Geomtry* cylinder = new Cylinder();
 
 		Geomtry* checkerPlane = new Plane();
+		Geomtry* cone = new Cone();
+
 
 		// Create objects by setting up their vertex data on the GPU
-		Object* sphereObject1 = new Object(phongShader, material0, texture15x20, sphere);
-		sphereObject1->translation = vec3(-9, 3, 0);
-		sphereObject1->scaleVec = vec3(0.5f, 1.2f, 0.5f);
-		objects.push_back(sphereObject1);
-
-		Object* sphereObject2 = new Object(phongShader, material1, roughTexture, cylinder);
-		sphereObject2->translation = vec3(-1.0f, -1.0f, 0.0f);
-		sphereObject2->scaleVec = vec3(1.0f, 1.0f, 1.0f);
-		sphereObject2->rotationAxis = vec3(-0.2f, 1.0f, -0.1f);
-		sphereObject2->rotationAngle = 0.5f;
-		objects.push_back(sphereObject2);
 
 		Object* checkerboard = new Object(phongShader, boardMaterial, boardTexture, checkerPlane);
 		checkerboard->translation = vec3(0, 0, 0);
 		checkerboard->scaleVec = vec3(1.0f);
 		objects.push_back(checkerboard);
 
+
+		vec3 h_axis = normalize(vec3(0, 1, 0.1f));
+		vec3 base = vec3(-1.0f, -1.0f, 0.0f);
+		vec3 center = base + h_axis * 1.0f;
+		vec3 z_dir = vec3(0, 0, 1);
+		vec3 rotAxis = normalize(cross(z_dir, h_axis));
+		float angle = acos(dot(z_dir, h_axis));
+
 		Object* yellowCylinder = new Object(phongShader, yellowPlastic, roughTexture, new Cylinder());
-		yellowCylinder->scaleVec = vec3(0.3f, 0.6f, 0.1f);
-		yellowCylinder->translation = vec3(-1.0f, 0.0f, 0.0f);
-		yellowCylinder->rotationAxis = normalize(cross(vec3(0.0f, 0.0f, 1.0f), normalize(vec3(0.0f, 1.0f, 0.1f))));
-		yellowCylinder->rotationAngle = acos(dot(vec3(0.0f, 0.0f, 1.0f), normalize(vec3(0.0f, 1.0f, 0.1f))));
+		yellowCylinder->scaleVec = vec3(0.3f, 0.3f, 1.0f);
+		yellowCylinder->rotationAxis = rotAxis;
+		yellowCylinder->rotationAngle = angle;
+		yellowCylinder->translation = center;
 		objects.push_back(yellowCylinder);
 
-		Object* waterCylinder = new Object(phongShader, yellowPlastic, solidTexture, new Cylinder());
-		waterCylinder->scaleVec = vec3(0.3f, 0.3f, 0.1f);
-		waterCylinder->rotationAxis = normalize(vec3(-0.2f, 1.0f, -0.1f));
-		waterCylinder->rotationAngle = 0.5f;
-		waterCylinder->translation = vec3(0.0f, -1.0f, -0.8f);
-		objects.push_back(waterCylinder);
+		vec3 coneDir1 = normalize(vec3(-0.1f, 1.0f, -0.05f));
+		vec3 coneApex1 = vec3(0.0f, 1.0f, 0.0f);
+		vec3 coneCenter1 = coneApex1 + coneDir1 * 1.0f + vec3(0.0f, 1.0f, 0.0f);
+		float coneRadius1 = tanf(0.4f) * 2.0f;
+		vec3 rotAxisCone1 = normalize(cross(z_dir, coneDir1));
+		float angleCone1 = acos(dot(z_dir, coneDir1));
+
+		Object* cyanCone = new Object(phongShader, cyanPlastic, roughTexture, cone);
+		cyanCone->scaleVec = vec3(coneRadius1, 2.0f, coneRadius1);
+		cyanCone->rotationAxis = rotAxisCone1;
+		cyanCone->rotationAngle = angleCone1;
+		cyanCone->translation = coneCenter1;
+		objects.push_back(cyanCone);
+
+		vec3 coneDir2 = normalize(vec3(0.2f, 1.0f, 0.0f));
+		vec3 coneApex2 = vec3(0.0f, 1.0f, 0.8f) - vec3(1.0f);
+		vec3 coneCenter2 = coneApex2 + coneDir2 * 1.0f;
+		float coneRadius2 = tanf(0.4f) * 2.0f;
+		vec3 rotAxisCone2 = normalize(cross(z_dir, coneDir2));
+		float angleCone2 = acos(dot(z_dir, coneDir2));
+
+		Object* magentaCone = new Object(phongShader, magentaPlastic, solidTexture, cone);
+		magentaCone->scaleVec = vec3(coneRadius2, 2.0f, coneRadius2);
+		magentaCone->rotationAxis = rotAxisCone2;
+		magentaCone->rotationAngle = angleCone2;
+		magentaCone->translation = coneCenter2;
+		objects.push_back(magentaCone);
+
 
 		// Camera
 		camera.wEye = vec3(0.0f, 1.0f, 4.0f);

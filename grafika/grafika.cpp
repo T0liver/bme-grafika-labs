@@ -127,24 +127,24 @@ public:
 	}
 
 	void Move(const int _dir) {
-		vec3 where;
-
 		switch (_dir) {
 		case 1: // balra
-			where = wEye + vec3(0.0f, 0.0f, 1.0f);
+			wEye = wEye + vec3(0.0f, 0.0f, 0.5f);
+			wLookat = wLookat + vec3(0.0f, 0.0f, 0.5f);
 			break;
 		case 2: // jobbra
-			where = wEye + vec3(0.0f, 0.0f, -1.0f);
+			wEye = wEye + vec3(0.0f, 0.0f, -0.5f);
+			wLookat = wLookat + vec3(0.0f, 0.0f, -0.5f);
 			break;
 		case 3: // elore
-			where = wEye + vec3(1.0f, 0.0f, 0.0f);
+			wEye = wEye + vec3(0.5f, 0.0f, 0.0f);
+			wLookat = wLookat + vec3(0.5f, 0.0f, 0.0f);
 			break;
 		case 4: // hatra
-			where = wEye + vec3(-1.0f, 0.0f, 1.0f);
+			wEye = wEye + vec3(-0.5f, 0.0f, 0.0f);
+			wLookat = wLookat + vec3(-0.5f, 0.0f, 0.0f);
 			break;
 		}
-
-		wEye = where;
 	}
 };
 
@@ -756,19 +756,19 @@ public:
 			scene.Turn(3);
 			refreshScreen();
 		}
-		else if (key == 'f') {
+		else if (key == 'g') {
 			scene.Move(1);
 			refreshScreen();
 		}
-		else if (key == 'h') {
+		else if (key == 't') {
 			scene.Move(2);
 			refreshScreen();
 		}
-		else if (key == 't') {
+		else if (key == 'h') {
 			scene.Move(3);
 			refreshScreen();
 		}
-		else if (key == 'g') {
+		else if (key == 'f') {
 			scene.Move(4);
 			refreshScreen();
 		}

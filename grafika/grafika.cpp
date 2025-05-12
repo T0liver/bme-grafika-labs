@@ -158,6 +158,25 @@ public:
 	}
 };
 
+class CheckerTexture : public Texture {
+public:
+	CheckerTexture(int size = 20) : Texture(size, size) {
+		std::vector<vec4> image(size * size);
+		const vec4 blue(0.0f, 0.1f, 0.3f, 1.0f);
+		const vec4 white(0.3f, 0.3f, 0.3f, 1.0f);
+
+		for (int x = 0; x < size; x++) {
+			for (int y = 0; y < size; y++) {
+				bool isWhite = ((x + y) % 2 == 1);
+				image[y * size + x] = isWhite ? white : blue;
+			}
+		}
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size, size, 0, GL_RGBA, GL_FLOAT, &image[0]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	}
+};
+
 //---------------------------
 struct RenderState {
 //---------------------------
@@ -397,6 +416,19 @@ public:
 	}
 };
 
+class Plane : public ParamSurface {
+public:
+	Plane() { create(); }
+	void eval(Dnum2& U, Dnum2& V, Dnum2& X, Dnum2& Y, Dnum2& Z) {
+		U = U * 20.0f - 10.0f;
+		V = V * 20.0f - 10.0f;
+
+		X = U;
+		Y = Dnum2(-1.0f);
+		Z = V;
+	}
+};
+
 //---------------------------
 struct Object {
 //---------------------------
@@ -459,13 +491,24 @@ public:
 		material1->ka = vec3(0.2f, 0.2f, 0.2f);
 		material1->shininess = 30;
 
+		Material* boardMaterial = new Material;
+		boardMaterial->kd = vec3(1.0f, 1.0f, 1.0f);
+		boardMaterial->ks = vec3(0.0f);
+		boardMaterial->ka = vec3(0.0f);
+		boardMaterial->shininess = 1.0f;
+
 		// Textures
 		Texture* texture4x8 = new CheckerBoardTexture(4, 8);
 		Texture* texture15x20 = new CheckerBoardTexture(15, 20);
 
+		Texture* boardTexture = new CheckerTexture(20);
+
+
 		// Geometries
 		Geomtry* sphere = new Sphere();
 		Geomtry* cylinder = new Cylinder();
+
+		Geomtry* checkerPlane = new Plane();
 
 		// Create objects by setting up their vertex data on the GPU
 		Object* sphereObject1 = new Object(phongShader, material0, texture15x20, sphere);
@@ -480,6 +523,11 @@ public:
 		sphereObject2->rotationAngle = 0.5f;
 		objects.push_back(sphereObject2);
 
+		Object* checkerboard = new Object(phongShader, boardMaterial, boardTexture, checkerPlane);
+		checkerboard->translation = vec3(0, 0, 0);
+		checkerboard->scaleVec = vec3(1.0f);
+		objects.push_back(checkerboard);
+
 		// Camera
 		camera.wEye = vec3(0.0f, 0.0f, 8.0f);
 		camera.wLookat = vec3(0.0f, 0.0f, 0.0f);
@@ -489,15 +537,15 @@ public:
 		lights.resize(3);
 		lights[0].wLightPos = vec4(5, 5, 4, 0);	// ideal point -> directional light source
 		lights[0].La = vec3(0.1f, 0.1f, 1);
-		lights[0].Le = vec3(3, 0, 0);
+		lights[0].Le = vec3(3.0f, 3.0f, 3.0f);
 
 		lights[1].wLightPos = vec4(5, 10, 20, 0);	// ideal point -> directional light source
 		lights[1].La = vec3(0.2f, 0.2f, 0.2f);
-		lights[1].Le = vec3(0, 3, 0);
+		lights[1].Le = vec3(3.0f, 3.0f, 3.0f);
 
 		lights[2].wLightPos = vec4(-5, 5, 5, 0);	// ideal point -> directional light source
 		lights[2].La = vec3(0.1f, 0.1f, 0.1f);
-		lights[2].Le = vec3(0, 0, 3);
+		lights[2].Le = vec3(3.0f, 3.0f, 3.0f);
 	}
 
 	void Render() {

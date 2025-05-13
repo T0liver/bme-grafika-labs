@@ -1,8 +1,6 @@
 #include "framework.h"
 
-//---------------------------
 template<class T> struct Dnum { // Dual numbers for automatic derivation
-//---------------------------
 	float f; // function value
 	T d;  // derivatives
 	Dnum(float f0 = 0, T d0 = T(0)) { f = f0, d = d0; }
@@ -57,9 +55,7 @@ mat4 RotationMatrix(vec3 axis, float angle) {
 	);
 }
 
-//---------------------------
 struct Camera { // 3D camera
-//---------------------------
 	vec3 wEye, wLookat, wVup;   // extrinsic
 	float fov, asp, fp, bp;		// intrinsic
 public:
@@ -148,39 +144,27 @@ public:
 	}
 };
 
-//---------------------------
-struct Material {
-//---------------------------
+class Material {
+public:
 	vec3 kd, ks, ka;
 	float shininess;
+
+	Material() {}
+
+	Material(vec3 _kd, vec3 _ks, vec3 _ka, float _shiniess) {
+		kd = _kd;
+		ks = _ks;
+		ka = _ka;
+		shininess = _shiniess;
+	}
 };
 
-//---------------------------
 struct Light {
-//---------------------------
 	vec3 La, Le;
 	vec4 wLightPos; // homogeneous coordinates, can be at ideal point
 };
 
-//---------------------------
-class CheckerBoardTexture : public Texture {
-//---------------------------
-public:
-	CheckerBoardTexture(const int width, const int height) : Texture(width, height) {
-		std::vector<vec4> image(width * height);
-		const vec4 white(1.0f, 1.0f, 1.0f, 1.0f), blue(0.0f, 0.0f, 1.0f, 1.0f);
-		for (int x = 0; x < width; x++) for (int y = 0; y < height; y++) {
-			image[y * width + x] = (x & 1) ^ (y & 1) ? white : blue;
-		}
-		//create(width, height, image, GL_NEAREST);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_FLOAT, &image[0]); // To GPU
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); // sampling
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	}
-};
-//---------------------------
 class CheckerTexture : public Texture {
-//---------------------------
 public:
 	CheckerTexture(int size = 20) : Texture(size, size) {
 		std::vector<vec4> image(size * size);
@@ -199,32 +183,7 @@ public:
 	}
 };
 
-//---------------------------
-class RoughTexture : public Texture {
-//---------------------------
-public:
-	RoughTexture(int size = 64) : Texture(size, size) {
-		std::vector<vec4> image(size * size);
-
-		for (int y = 0; y < size; ++y) {
-			for (int x = 0; x < size; ++x) {
-				float noise = float(rand()) / RAND_MAX;
-				vec3 color = vec3(0.3f + 0.1f * noise);
-				image[y * size + x] = vec4(color, 1.0f);
-			}
-		}
-
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size, size, 0, GL_RGBA, GL_FLOAT, &image[0]);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	}
-};
-
-//---------------------------
 class SolidTexture : public Texture {
-//---------------------------
 public:
 	SolidTexture() : Texture(1, 1) {
 		std::vector<vec4> image(1, vec4(1.0f, 1.0f, 1.0f, 1.0f));
@@ -232,9 +191,7 @@ public:
 	}
 };
 
-//---------------------------
 struct RenderState {
-//---------------------------
 	mat4	           MVP, M, Minv, V, P;
 	Material* material;
 	std::vector<Light> lights;
@@ -242,9 +199,7 @@ struct RenderState {
 	vec3	           wEye;
 };
 
-//---------------------------
 class Shader : public GPUProgram {
-//---------------------------
 public:
 	virtual void Bind(RenderState state) = 0;
 
@@ -262,9 +217,7 @@ public:
 	}
 };
 
-//---------------------------
 class PhongShader : public Shader {
-//---------------------------
 	const char* vertexSource = R"(
 		#version 330
 		precision highp float;
@@ -372,177 +325,54 @@ public:
 	}
 };
 
-//---------------------------
-class Geomtry {
-//---------------------------
-protected:
-	unsigned int vao, vbo;        // vertex array object
-public:
-	Geomtry() {
-		glGenVertexArrays(1, &vao);
-		glBindVertexArray(vao);
-		glGenBuffers(1, &vbo); // Generate 1 vertex buffer object
-		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	}
-	virtual void Draw() = 0;
-	~Geomtry() {
-		glDeleteBuffers(1, &vbo);
-		glDeleteVertexArrays(1, &vao);
-	}
+struct VertexData {
+	vec3 position, normal;
+	vec2 texcoord;
 };
 
-//---------------------------
-class ParamSurface : public Geomtry {
-//---------------------------
-	struct VertexData {
-		vec3 position, normal;
-		vec2 texcoord;
-	};
-
-	unsigned int nVtxPerStrip, nStrips;
+class Object3d {
+protected:
+	GLuint vao = 0, vbo = 0;
+	int vertexCount = 0;
+	std::vector<VertexData> vertices;
 public:
-	ParamSurface() { nVtxPerStrip = nStrips = 0; }
-
-	virtual void eval(Dnum2& U, Dnum2& V, Dnum2& X, Dnum2& Y, Dnum2& Z) = 0;
-
-	VertexData GenVertexData(float u, float v) {
-		VertexData vtxData;
-		vtxData.texcoord = vec2(u, v);
-		Dnum2 X, Y, Z;
-		Dnum2 U(u, vec2(1, 0)), V(v, vec2(0, 1));
-		eval(U, V, X, Y, Z);
-		vtxData.position = vec3(X.f, Y.f, Z.f);
-		vec3 drdU(X.d.x, Y.d.x, Z.d.x), drdV(X.d.y, Y.d.y, Z.d.y);
-		vtxData.normal = cross(drdU, drdV);
-		return vtxData;
+	Object3d() {
+		glGenVertexArrays(1, &vao);
+		glGenBuffers(1, &vbo);
 	}
 
-	void create(int N = tessellationLevel, int M = tessellationLevel) {
-		nVtxPerStrip = (M + 1) * 2;
-		nStrips = N;
-		std::vector<VertexData> vtxData;	// vertices on the CPU
-		for (int i = 0; i < N; i++) {
-			for (int j = 0; j <= M; j++) {
-				vtxData.push_back(GenVertexData((float)j / M, (float)i / N));
-				vtxData.push_back(GenVertexData((float)j / M, (float)(i + 1) / N));
-			}
-		}
-		glBufferData(GL_ARRAY_BUFFER, nVtxPerStrip * nStrips * sizeof(VertexData), &vtxData[0], GL_STATIC_DRAW);
-		// Enable the vertex attribute arrays
-		glEnableVertexAttribArray(0);  // attribute array 0 = POSITION
-		glEnableVertexAttribArray(1);  // attribute array 1 = NORMAL
-		glEnableVertexAttribArray(2);  // attribute array 2 = TEXCOORD0
-		// attribute array, components/attribute, component type, normalize?, stride, offset
+	const std::vector<VertexData>& getVertices() const { return vertices; }
+
+	virtual ~Object3d() {
+		if (vbo) glDeleteBuffers(1, &vbo);
+		if (vao) glDeleteVertexArrays(1, &vao);
+	}
+
+	void uploadVertexData(const std::vector<VertexData>& vertices) {
+		vertexCount = vertices.size();
+		this->vertices = vertices;
+		glBindVertexArray(vao);
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		glBufferData(GL_ARRAY_BUFFER, vertexCount * sizeof(VertexData), vertices.data(), GL_STATIC_DRAW);
+
+		glEnableVertexAttribArray(0); // position
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, position));
+
+		glEnableVertexAttribArray(1); // normal
 		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, normal));
+
+		glEnableVertexAttribArray(2); // texcoord
 		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, texcoord));
 	}
 
-	void Draw() {
+	virtual void Draw() {
 		glBindVertexArray(vao);
-		for (unsigned int i = 0; i < nStrips; i++) glDrawArrays(GL_TRIANGLE_STRIP, i * nVtxPerStrip, nVtxPerStrip);
+		glDrawArrays(GL_TRIANGLES, 0, vertexCount);
 	}
 };
 
-//---------------------------
-class Sphere : public ParamSurface {
-//---------------------------
-public:
-	Sphere() { create(); }
-	void eval(Dnum2& U, Dnum2& V, Dnum2& X, Dnum2& Y, Dnum2& Z) {
-		U = U * 2.0f * (float)M_PI, V = V * (float)M_PI;
-		X = Cos(U) * Sin(V); Y = Sin(U) * Sin(V); Z = Cos(V);
-	}
-};
-
-//---------------------------
-class Plane : public ParamSurface {
-//---------------------------
-public:
-	Plane() { create(); }
-	void eval(Dnum2& U, Dnum2& V, Dnum2& X, Dnum2& Y, Dnum2& Z) {
-		U = U * 20.0f - 10.0f;
-		V = V * 20.0f - 10.0f;
-
-		X = U;
-		Y = Dnum2(-1.0f);
-		Z = V;
-	}
-};
-
-//---------------------------
-class Cylinder : public ParamSurface {
-//---------------------------
-public:
-	Cylinder() { create(1, 6); } // oldalra 6 szelet
-
-	void eval(Dnum2& U, Dnum2& V, Dnum2& X, Dnum2& Y, Dnum2& Z) {
-		U = U * 2.0f * M_PI;
-		Dnum2 z = (V - 0.5f) * 4.0f;
-		X = Cos(U);
-		Y = Sin(U);
-		Z = z;
-	}
-};
-
-//---------------------------
-class Cone : public ParamSurface {
-//---------------------------
-public:
-	Cone() { create(1, 6); } // 6 szelet, 1 hosszanti szint
-
-	void eval(Dnum2& U, Dnum2& V, Dnum2& X, Dnum2& Y, Dnum2& Z) {
-		U = U * 2.0f * M_PI;
-
-		Dnum2 r = (Dnum2(1.0f) - V); // sugár csökken fentrol lefelé
-		X = r * Cos(U);
-		Y = r * Sin(U);
-		Z = V * 2.0f - 1.0f; // -1 (csúcs) - 1 (alap)
-	}
-};
-
-//---------------------------
-struct Object {
-//---------------------------
-	Shader* shader;
-	Material* material;
-	Texture* texture;
-	Geomtry* geometry;
-	vec3 scaleVec, translation, rotationAxis;
-	float rotationAngle;
-public:
-	Object(Shader* _shader, Material* _material, Texture* _texture, Geomtry* _geometry) :
-		scaleVec(vec3(1, 1, 1)), translation(vec3(0, 0, 0)), rotationAxis(0, 0, 1), rotationAngle(0) {
-		shader = _shader;
-		texture = _texture;
-		material = _material;
-		geometry = _geometry;
-	}
-
-	virtual void SetModelingTransform(mat4& M, mat4& Minv) {
-		M = scale(scaleVec) * rotate(rotationAngle, rotationAxis) * translate(translation);
-		Minv = translate(-translation) * rotate(-rotationAngle, rotationAxis) * scale(vec3(1 / scaleVec.x, 1 / scaleVec.y, 1 / scaleVec.z));
-	}
-
-	void Draw(RenderState state) {
-		mat4 M, Minv;
-		SetModelingTransform(M, Minv);
-		state.M = M;
-		state.Minv = Minv;
-		state.MVP = state.P * state.V * state.M;
-		state.material = material;
-		state.texture = texture;
-		shader->Bind(state);
-		geometry->Draw();
-	}
-
-	virtual void Animate(float tstart, float tend) { rotationAngle = 0.8f * tend; }
-};
-
-//---------------------------
 class Scene {
-//---------------------------
-	std::vector<Object*> objects;
+	std::vector<Object3d*> objects;
 	Camera camera; // 3D camera
 	std::vector<Light> lights;
 public:
@@ -550,115 +380,19 @@ public:
 		// Shaders
 		Shader* phongShader = new PhongShader();
 
-		// Materials
-		Material* material0 = new Material;
-		material0->kd = vec3(0.6f, 0.4f, 0.2f);
-		material0->ks = vec3(4, 4, 4);
-		material0->ka = vec3(0.1f, 0.1f, 0.1f);
-		material0->shininess = 100;
+		Material* boardMaterial = new Material(vec3(1.0f, 1.0f, 1.0f), vec3(0.0f), vec3(0.0f), 1.0f);
 
-		Material* material1 = new Material;
-		material1->kd = vec3(0.8f, 0.6f, 0.4f);
-		material1->ks = vec3(0.3f, 0.3f, 0.3f);
-		material1->ka = vec3(0.2f, 0.2f, 0.2f);
-		material1->shininess = 30;
+		Material* yellowPlastic = new Material(vec3(0.3f, 0.2f, 0.1f), vec3(2.0f, 2.0f, 2.0f), vec3(0.1f), 50.0f);
 
-		Material* boardMaterial = new Material;
-		boardMaterial->kd = vec3(1.0f, 1.0f, 1.0f);
-		boardMaterial->ks = vec3(0.0f);
-		boardMaterial->ka = vec3(0.0f);
-		boardMaterial->shininess = 1.0f;
+		Material* cyanPlastic = new Material(vec3(0.1f, 0.2f, 0.3f), vec3(2.0f, 2.0f, 2.0f), vec3(0.1f, 0.1f, 0.1f), 100.0f);
 
-		Material* yellowPlastic = new Material;
-		yellowPlastic->kd = vec3(0.3f, 0.2f, 0.1f);
-		yellowPlastic->ks = vec3(2.0f, 2.0f, 2.0f);
-		yellowPlastic->ka = vec3(0.1f, 0.1f, 0.1f);
-		yellowPlastic->shininess = 50.0f;
+		Material* magentaPlastic = new Material(vec3(0.3f, 0.0f, 0.2f), vec3(2.0f, 2.0f, 2.0f), vec3(0.1f, 0.1f, 0.1f), 20.0f);
 
-		Material* cyanPlastic = new Material;
-		cyanPlastic->kd = vec3(0.1f, 0.2f, 0.3f);
-		cyanPlastic->ks = vec3(2.0f);
-		cyanPlastic->ka = vec3(0.1f);
-		cyanPlastic->shininess = 100.0f;
-
-		Material* magentaPlastic = new Material;
-		magentaPlastic->kd = vec3(0.3f, 0.0f, 0.2f);
-		magentaPlastic->ks = vec3(2.0f);
-		magentaPlastic->ka = vec3(0.1f);
-		magentaPlastic->shininess = 20.0f;
-
-		Material* waterThing = new Material;
-		waterThing->kd = vec3(1.3f);
-		waterThing->ks = vec3(0.0f);
-		waterThing->ka = vec3(0.1f);
-		waterThing->shininess = 1.0f;
-
-		// Textures
-		Texture* texture4x8 = new CheckerBoardTexture(4, 8);
-		Texture* texture15x20 = new CheckerBoardTexture(15, 20);
+		Material* waterThing = new Material(vec3(1.3f, 1.3f, 1.3f), vec3(0.0f), vec3(0.1f, 0.1f, 0.1f), 1.0f);
 
 		Texture* boardTexture = new CheckerTexture(20);
-		Texture* roughTexture = new RoughTexture(64);
-		Texture* solidTexture = new SolidTexture();
-
-
-		// Geometries
-		Geomtry* sphere = new Sphere();
-		Geomtry* cylinder = new Cylinder();
-
-		Geomtry* checkerPlane = new Plane();
-		Geomtry* cone = new Cone();
-
 
 		// Create objects by setting up their vertex data on the GPU
-
-		Object* checkerboard = new Object(phongShader, boardMaterial, boardTexture, checkerPlane);
-		checkerboard->translation = vec3(0, 0, 0);
-		checkerboard->scaleVec = vec3(1.0f);
-		objects.push_back(checkerboard);
-
-
-		vec3 h_axis = normalize(vec3(0, 1, 0.1f));
-		vec3 base = vec3(-1.0f, -1.0f, 0.0f);
-		vec3 center = base + h_axis * 1.0f;
-		vec3 z_dir = vec3(0, 0, 1);
-		vec3 rotAxis = normalize(cross(z_dir, h_axis));
-		float angle = acos(dot(z_dir, h_axis));
-
-		Object* yellowCylinder = new Object(phongShader, yellowPlastic, solidTexture, new Cylinder());
-		yellowCylinder->scaleVec = vec3(0.3f, 0.3f, 1.0f);
-		yellowCylinder->rotationAxis = rotAxis;
-		yellowCylinder->rotationAngle = angle;
-		yellowCylinder->translation = center;
-		objects.push_back(yellowCylinder);
-
-		vec3 coneDir1 = normalize(vec3(-0.1f, 1.0f, -0.05f));
-		vec3 coneApex1 = vec3(0.0f, 1.0f, 0.0f);
-		vec3 coneCenter1 = coneApex1 + coneDir1 * 1.0f + vec3(0.0f, 1.0f, 0.0f);
-		float coneRadius1 = tanf(0.4f) * 2.0f;
-		vec3 rotAxisCone1 = normalize(cross(z_dir, coneDir1));
-		float angleCone1 = acos(dot(z_dir, coneDir1));
-
-		Object* cyanCone = new Object(phongShader, cyanPlastic, solidTexture, cone);
-		cyanCone->scaleVec = vec3(coneRadius1, 2.0f, coneRadius1);
-		cyanCone->rotationAxis = rotAxisCone1;
-		cyanCone->rotationAngle = angleCone1;
-		cyanCone->translation = coneCenter1;
-		objects.push_back(cyanCone);
-
-		vec3 coneDir2 = normalize(vec3(0.2f, 1.0f, 0.0f));
-		vec3 coneApex2 = vec3(0.0f, 1.0f, 0.8f) - vec3(1.0f);
-		vec3 coneCenter2 = coneApex2 + coneDir2 * 1.0f;
-		float coneRadius2 = tanf(0.4f) * 2.0f;
-		vec3 rotAxisCone2 = normalize(cross(z_dir, coneDir2));
-		float angleCone2 = acos(dot(z_dir, coneDir2));
-
-		Object* magentaCone = new Object(phongShader, magentaPlastic, solidTexture, cone);
-		magentaCone->scaleVec = vec3(coneRadius2, 2.0f, coneRadius2);
-		magentaCone->rotationAxis = rotAxisCone2;
-		magentaCone->rotationAngle = angleCone2;
-		magentaCone->translation = coneCenter2;
-		objects.push_back(magentaCone);
 
 
 		// Camera
@@ -687,12 +421,14 @@ public:
 		state.V = camera.V();
 		state.P = camera.P();
 		state.lights = lights;
-		for (Object* obj : objects) obj->Draw(state);
+		for (Object3d* obj : objects) obj->Draw();
 	}
 
+	/** deprecated
 	void Animate(float tstart, float tend) {
-		for (Object* obj : objects) obj->Animate(tstart, tend);
+		for (Object3d* obj : objects) obj->Animate(tstart, tend);
 	}
+	*/
 
 	void Spin() {
 		camera.Spin();
@@ -707,9 +443,7 @@ public:
 	}
 };
 
-//---------------------------
 class Kepszintezis : public glApp {
-//---------------------------
 	Scene scene;
 public:
 	Kepszintezis() : glApp("Kepszintezis") {}

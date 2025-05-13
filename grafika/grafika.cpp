@@ -350,11 +350,6 @@ class PhongShader : public Shader {
 		}
 	)";
 
-	const char* geometrySource = R"(
-		#version 330
-		in vec4 fragmentColor;
-	)";
-
 public:
 	PhongShader() { create(vertexSource, fragmentSource); }
 
@@ -630,7 +625,7 @@ public:
 		vec3 rotAxis = normalize(cross(z_dir, h_axis));
 		float angle = acos(dot(z_dir, h_axis));
 
-		Object* yellowCylinder = new Object(phongShader, yellowPlastic, roughTexture, new Cylinder());
+		Object* yellowCylinder = new Object(phongShader, yellowPlastic, solidTexture, new Cylinder());
 		yellowCylinder->scaleVec = vec3(0.3f, 0.3f, 1.0f);
 		yellowCylinder->rotationAxis = rotAxis;
 		yellowCylinder->rotationAngle = angle;
@@ -644,7 +639,7 @@ public:
 		vec3 rotAxisCone1 = normalize(cross(z_dir, coneDir1));
 		float angleCone1 = acos(dot(z_dir, coneDir1));
 
-		Object* cyanCone = new Object(phongShader, cyanPlastic, roughTexture, cone);
+		Object* cyanCone = new Object(phongShader, cyanPlastic, solidTexture, cone);
 		cyanCone->scaleVec = vec3(coneRadius1, 2.0f, coneRadius1);
 		cyanCone->rotationAxis = rotAxisCone1;
 		cyanCone->rotationAngle = angleCone1;

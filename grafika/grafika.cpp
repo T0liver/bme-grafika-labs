@@ -502,23 +502,29 @@ public:
 		// Shaders
 		Shader* phongShader = new PhongShader();
 
+		// Materials
 		Material* boardMaterial = new Material(vec3(1.0f, 1.0f, 1.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 0.0f), 100.0f);
-
+		Material* goldenThing = new Material(vec3(0.17f, 0.35f, 1.5f), vec3(3.1f, 2.7f, 1.9f), vec3(0.51f, 1.05f, 4.5f), 150.0f);
+		Material* waterThing = new Material(vec3(1.3f, 1.3f, 1.3f), vec3(0.1f, 0.1f, 0.1f), vec3(3.9f, 3.9f, 3.9f), 80.0f);
 		Material* yellowPlastic = new Material(vec3(0.3f, 0.2f, 0.1f), vec3(2.0f, 2.0f, 2.0f), vec3(0.1f), 50.0f);
-
 		Material* cyanPlastic = new Material(vec3(0.1f, 0.2f, 0.3f), vec3(2.0f, 2.0f, 2.0f), vec3(0.1f, 0.1f, 0.1f), 100.0f);
-
 		Material* magentaPlastic = new Material(vec3(0.3f, 0.0f, 0.2f), vec3(2.0f, 2.0f, 2.0f), vec3(0.1f, 0.1f, 0.1f), 20.0f);
 
-		Material* waterThing = new Material(vec3(1.3f, 1.3f, 1.3f), vec3(0.0f), vec3(0.1f, 0.1f, 0.1f), 1.0f);
-
+		// Textures
 		Texture* boardTexture = new CheckerTexture(20, 20);
 
 		// Create objects by setting up their vertex data on the GPU
 		Object3d* checkerPlane = new Plane(vec3(0.0f, -1.0f, 0.0f), vec2(20.0f, 20.0f), vec3(0.0f, 1.0f, 0.0f));
-
 		Object* board = new Object(phongShader, boardMaterial, checkerPlane, boardTexture);
 		objects.push_back(board);
+
+		Object3d* goldenCylinder = new Cylinder(vec3(1.0f, -1.0f, 0.0f), vec3(0.1f, 1.0f, 0.0f), 0.3f, 2.0f);
+		Object* goldenC = new Object(phongShader, goldenThing, goldenCylinder);
+		objects.push_back(goldenC);
+
+		Object3d* waterCylinder = new Cylinder(vec3(0.0f, -1.0f, -0.8f), vec3(-0.2f, 1.0f, -0.1f), 0.3f, 2.0f);
+		Object* waterC = new Object(phongShader, waterThing, waterCylinder);
+		objects.push_back(waterC);
 
 		Object3d* yellowCylinder = new Cylinder(vec3(-1.0f, -1.0f, 0.0f), vec3(0.0f, 1.0f, 0.1f), 0.3f, 2.0f);
 		Object* yellowC = new Object(phongShader, yellowPlastic, yellowCylinder);
@@ -527,6 +533,10 @@ public:
 		Object3d* cyanCone = new Cone(vec3(0.0f, 1.0f, 0.0f), vec3(-0.1f, -1.0f, -0.05f), 2.0f, 0.2f);
 		Object* cyanConeObject = new Object(phongShader, cyanPlastic, cyanCone);
 		objects.push_back(cyanConeObject);
+
+		Object3d* magentaCone = new Cone(vec3(0.0f, 1.0f, 0.8f), vec3(0.2f, -1.0f, 0.0f), 2.0f, 0.2f);
+		Object* magentaConeObject = new Object(phongShader, magentaPlastic, magentaCone);
+		objects.push_back(magentaConeObject);
 
 		// Camera
 		camera.wEye = vec3(0.0f, 1.0f, 4.0f);

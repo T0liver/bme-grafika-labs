@@ -409,39 +409,36 @@ public:
 
 		vec3 axisDir = normalize(_axisDir);
 		vec3 baseCenter = _apex + axisDir * _height;
-
 		float radius = tan(_angle) * _height;
 
-		vec3 t1 = normalize(cross(axisDir, vec3(0.0f, 1.0f, 0.0f)));
-		if (length(t1) < 1e-6f) t1 = normalize(cross(axisDir, vec3(1.0f, 0.0f, 0.0f)));
-		vec3 t2 = normalize(cross(axisDir, t1));
+		vec3 U = normalize(cross(axisDir, vec3(1.0f, 0.0f, 0.0f)));
+		if (length(U) < 1e-6f) U = normalize(cross(axisDir, vec3(0.0f, 1.0f, 0.0f)));
+		vec3 V = normalize(cross(axisDir, U));
 
-		int slices = 6;
+		const int slices = 12;
 		for (int i = 0; i < slices; ++i) {
-			float theta1 = 2 * M_PI * i / slices;
-			float theta2 = 2 * M_PI * (i + 1) / slices;
+			float theta1 = (float)(i + 0.5f) / slices * 2 * M_PI;
+			float theta2 = (float)(i + 1.5f) / slices * 2 * M_PI;
 
-			vec3 p1 = baseCenter + radius * (cos(theta1) * t1 + sin(theta1) * t2);
-			vec3 p2 = baseCenter + radius * (cos(theta2) * t1 + sin(theta2) * t2);
+			vec3 p1 = baseCenter + radius * (cos(theta1) * U + sin(theta1) * V);
+			vec3 p2 = baseCenter + radius * (cos(theta2) * U + sin(theta2) * V);
 
-			vec3 normal1 = normalize(cross(p1 - _apex, axisDir));
-			vec3 normal2 = normalize(cross(p2 - _apex, axisDir));
+			vec3 normal1 = normalize(cross(cross(p1 - _apex, axisDir), p1 - _apex));
+			vec3 normal2 = normalize(cross(cross(p2 - _apex, axisDir), p2 - _apex));
 
-			verticles.push_back({ _apex, normalize(cross(p2 - _apex, p1 - _apex)), vec2(0.5f, 1.0f) });
-			verticles.push_back({ p1, normal1, vec2(0.0f, 0.0f) });
-			verticles.push_back({ p2, normal2, vec2(1.0f, 0.0f) });
+			verticles.push_back({ _apex, normalize(cross(p1 - _apex, p2 - _apex)), vec2(0.5f, 1.0f) });
+			verticles.push_back({ p1, normal1, vec2((float)i / slices, 0.0f) });
+			verticles.push_back({ p2, normal2, vec2((float)(i + 1) / slices, 0.0f) });
 
 			vec3 baseNormal = -axisDir;
 			verticles.push_back({ baseCenter, baseNormal, vec2(0.5f, 0.5f) });
-			verticles.push_back({ p2, baseNormal, vec2(0.0f, 0.0f) });
-			verticles.push_back({ p1, baseNormal, vec2(1.0f, 0.0f) });
+			verticles.push_back({ p2, baseNormal, vec2(0.5f + 0.5f * cos(theta2), 0.5f + 0.5f * sin(theta2)) });
+			verticles.push_back({ p1, baseNormal, vec2(0.5f + 0.5f * cos(theta1), 0.5f + 0.5f * sin(theta1)) });
 		}
 
 		uploadVertexData(verticles);
 	}
 };
-
-
 
 struct Object {
 	Shader* shader;

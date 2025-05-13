@@ -93,7 +93,7 @@ public:
 class CheckerTexture : public Texture {
 public:
 	CheckerTexture(const int _width, const int _height,
-		const vec4 _color1 = vec4(0.0f, 0.2f, 0.6f, 1.0f), const vec4 _color2 = vec4(0.6f, 0.6f, 0.6f, 1.0f))
+		const vec3 _color1 = vec3(0.0f, 0.2f, 0.6f), const vec3 _color2 = vec3(0.6f, 0.6f, 0.6f))
 		: Texture(_width, _height)
 	{
 		std::vector<vec3> img;
@@ -106,7 +106,7 @@ public:
 			}
 		}
 
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, _width, _height, 0, GL_RGBA, GL_FLOAT, &img[0]);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, _width, _height, 0, GL_RGB, GL_FLOAT, &img[0]);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	}
@@ -202,7 +202,7 @@ class PhongShader : public Shader {
 		uniform vec3 numOfTriangles;
 		uniform vec3 lightDir;
 		
-		uniform bool useTexure;
+		uniform bool useTexture;
 
 		in vec3 wNormal;
 		in vec3 wView;
@@ -216,7 +216,7 @@ class PhongShader : public Shader {
 			vec3 N = normalize(wNormal);
 			vec3 V = normalize(wView); 
 			if (dot(N, V) < 0) N = -N;	// prepare for one-sided surfaces like Mobius or Klein
-			vec3 texColor = texture(diffuseTexture, texcoord).rgb;
+			vec3 texColor = useTexture ? texture(diffuseTexture, texcoord).rgb : vec3(1.0f);
 			vec3 ka = material.ka * texColor;
 			vec3 kd = material.kd * texColor;
 
@@ -308,6 +308,35 @@ public:
 	}
 };
 
+class Plane : public Object3d {
+public:
+	Plane(vec3 _center, vec2 _size, vec3 _normal) {
+		std::vector<VertexData> verticles;
+		
+		_normal = normalize(_normal);
+		vec3 tangent = normalize(cross(_normal, vec3(0.0f, 0.0f, 1.0f)));
+		if (length(tangent) < 1e-6f) tangent = normalize(cross(_normal, vec3(0.0f, 1.0f, 0.0f)));
+		vec3 bitangent = normalize(cross(_normal, tangent));
+		vec3 halfU = tangent * (_size.x / 2.0f);
+		vec3 halfV = bitangent * (_size.y / 2.0f);
+
+		vec3 P1 = _center - halfU - halfV;
+		vec3 P2 = _center + halfU - halfV;
+		vec3 P3 = _center + halfU + halfV;
+		vec3 P4 = _center - halfU + halfV;
+
+		verticles.push_back({ P1, _normal, vec2(0.0f, 0.0f) });
+		verticles.push_back({ P2, _normal, vec2(1.0f, 0.0f) });
+		verticles.push_back({ P3, _normal, vec2(1.0f, 1.0f) });
+		verticles.push_back({ P1, _normal, vec2(0.0f, 0.0f) });
+		verticles.push_back({ P3, _normal, vec2(1.0f, 1.0f) });
+		verticles.push_back({ P4, _normal, vec2(0.0f, 1.0f) });
+
+		uploadVertexData(verticles);
+	}
+};
+
+
 struct Object {
 	Shader* shader;
 	Material* material;
@@ -367,7 +396,7 @@ public:
 		// Shaders
 		Shader* phongShader = new PhongShader();
 
-		Material* boardMaterial = new Material(vec3(1.0f, 1.0f, 1.0f), vec3(0.0f), vec3(0.0f), 1.0f);
+		Material* boardMaterial = new Material(vec3(1.0f, 1.0f, 1.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 0.0f), 100.0f);
 
 		Material* yellowPlastic = new Material(vec3(0.3f, 0.2f, 0.1f), vec3(2.0f, 2.0f, 2.0f), vec3(0.1f), 50.0f);
 
@@ -377,10 +406,13 @@ public:
 
 		Material* waterThing = new Material(vec3(1.3f, 1.3f, 1.3f), vec3(0.0f), vec3(0.1f, 0.1f, 0.1f), 1.0f);
 
-		Texture* boardTexture = new CheckerTexture(10, 10);
+		Texture* boardTexture = new CheckerTexture(20, 20);
 
 		// Create objects by setting up their vertex data on the GPU
+		Object3d* checkerPlane = new Plane(vec3(0.0f, -1.0f, 0.0f), vec2(20.0f, 20.0f), vec3(0.0f, 1.0f, 0.0f));
 
+		Object* board = new Object(phongShader, boardMaterial, checkerPlane, boardTexture);
+		objects.push_back(board);
 
 		// Camera
 		camera.wEye = vec3(0.0f, 1.0f, 4.0f);

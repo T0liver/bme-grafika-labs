@@ -32,7 +32,7 @@ template<class T> Dnum<T> Pow(Dnum<T> g, float n) {
 typedef Dnum<vec2> Dnum2;
 
 const int tessellationLevel = 20;
-const int windowWidth = 600, windowHeight = 600; // window size
+const int windowWidth = 600, windowHeight = 600; //window size
 
 mat4 RotationMatrix(vec3 axis, float angle) {
 	axis = normalize(axis);

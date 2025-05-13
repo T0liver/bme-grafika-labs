@@ -402,6 +402,45 @@ public:
 	}
 };
 
+class Cone : public Object3d {
+public:
+	Cone(const vec3 _apex, const vec3 _axisDir, const float _height, const float _angle) {
+		std::vector<VertexData> verticles;
+
+		vec3 axisDir = normalize(_axisDir);
+		vec3 baseCenter = _apex + axisDir * _height;
+
+		float radius = tan(_angle) * _height;
+
+		vec3 t1 = normalize(cross(axisDir, vec3(0.0f, 1.0f, 0.0f)));
+		if (length(t1) < 1e-6f) t1 = normalize(cross(axisDir, vec3(1.0f, 0.0f, 0.0f)));
+		vec3 t2 = normalize(cross(axisDir, t1));
+
+		int slices = 6;
+		for (int i = 0; i < slices; ++i) {
+			float theta1 = 2 * M_PI * i / slices;
+			float theta2 = 2 * M_PI * (i + 1) / slices;
+
+			vec3 p1 = baseCenter + radius * (cos(theta1) * t1 + sin(theta1) * t2);
+			vec3 p2 = baseCenter + radius * (cos(theta2) * t1 + sin(theta2) * t2);
+
+			vec3 normal1 = normalize(cross(p1 - _apex, axisDir));
+			vec3 normal2 = normalize(cross(p2 - _apex, axisDir));
+
+			verticles.push_back({ _apex, normalize(cross(p2 - _apex, p1 - _apex)), vec2(0.5f, 1.0f) });
+			verticles.push_back({ p1, normal1, vec2(0.0f, 0.0f) });
+			verticles.push_back({ p2, normal2, vec2(1.0f, 0.0f) });
+
+			vec3 baseNormal = -axisDir;
+			verticles.push_back({ baseCenter, baseNormal, vec2(0.5f, 0.5f) });
+			verticles.push_back({ p2, baseNormal, vec2(0.0f, 0.0f) });
+			verticles.push_back({ p1, baseNormal, vec2(1.0f, 0.0f) });
+		}
+
+		uploadVertexData(verticles);
+	}
+};
+
 
 
 struct Object {
@@ -484,6 +523,10 @@ public:
 		Object3d* yellowCylinder = new Cylinder(vec3(-1.0f, -1.0f, 0.0f), vec3(0.0f, 1.0f, 0.1f), 0.3f, 2.0f);
 		Object* yellowC = new Object(phongShader, yellowPlastic, yellowCylinder);
 		objects.push_back(yellowC);
+
+		Object3d* cyanCone = new Cone(vec3(0.0f, 1.0f, 0.0f), vec3(-0.1f, -1.0f, -0.05f), 2.0f, 0.2f);
+		Object* cyanConeObject = new Object(phongShader, cyanPlastic, cyanCone);
+		objects.push_back(cyanConeObject);
 
 		// Camera
 		camera.wEye = vec3(0.0f, 1.0f, 4.0f);

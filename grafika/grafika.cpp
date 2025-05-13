@@ -338,9 +338,9 @@ public:
 
 class Cylinder : public Object3d {
 public:
-	Cylinder(const vec3 base, const vec3 _axis, const float radius, const float height) {
+	Cylinder(const vec3 _base, const vec3 _axis, const float _radius, const float _height) {
 		vec3 axis = normalize(_axis);
-		vec3 top = base + axis * height;
+		vec3 top = _base + axis * _height;
 
 		vec3 tangent = normalize(cross(axis, vec3(0.0f, 0.0f, 1.0f)));
 		if (length(tangent) < 1e-6f) tangent = normalize(cross(axis, vec3(0.0f, 1.0f, 0.0f)));
@@ -353,13 +353,13 @@ public:
 			float a0 = i * angleStep;
 			float a1 = (i + 1) % slices * angleStep;
 
-			vec3 P1 = base + radius * (cos(a0) * tangent + sin(a0) * bitangent);
-			vec3 P2 = base + radius * (cos(a1) * tangent + sin(a1) * bitangent);
-			vec3 P3 = top + radius * (cos(a0) * tangent + sin(a0) * bitangent);
-			vec3 P4 = top + radius * (cos(a1) * tangent + sin(a1) * bitangent);
+			vec3 P1 = _base + _radius * (cos(a0) * tangent + sin(a0) * bitangent);
+			vec3 P2 = _base + _radius * (cos(a1) * tangent + sin(a1) * bitangent);
+			vec3 P3 = top + _radius * (cos(a0) * tangent + sin(a0) * bitangent);
+			vec3 P4 = top + _radius * (cos(a1) * tangent + sin(a1) * bitangent);
 
-			vec3 N1 = normalize(P1 - base);
-			vec3 N2 = normalize(P2 - base);
+			vec3 N1 = normalize(P1 - _base);
+			vec3 N2 = normalize(P2 - _base);
 			vec3 N3 = normalize(P3 - top);
 			vec3 N4 = normalize(P4 - top);
 
@@ -376,11 +376,11 @@ public:
 			float a0 = i * angleStep;
 			float a1 = (i + 1) % slices * angleStep;
 
-			vec3 P1 = base + radius * (cos(a0) * tangent + sin(a0) * bitangent);
-			vec3 P2 = base + radius * (cos(a1) * tangent + sin(a1) * bitangent);
+			vec3 P1 = _base + _radius * (cos(a0) * tangent + sin(a0) * bitangent);
+			vec3 P2 = _base + _radius * (cos(a1) * tangent + sin(a1) * bitangent);
 
 			vec3 normal = -axis;
-			vertices.push_back({ base, normal, vec2(0.5f, 0.5f) });
+			vertices.push_back({ _base, normal, vec2(0.5f, 0.5f) });
 			vertices.push_back({ P2, normal, vec2(0.5f + 0.5f * cos(a1), 0.5f + 0.5f * sin(a1)) });
 			vertices.push_back({ P1, normal, vec2(0.5f + 0.5f * cos(a0), 0.5f + 0.5f * sin(a0)) });
 		}
@@ -389,8 +389,8 @@ public:
 			float a0 = i * angleStep;
 			float a1 = (i + 1) % slices * angleStep;
 
-			vec3 P1 = top + radius * (cos(a0) * tangent + sin(a0) * bitangent);
-			vec3 P2 = top + radius * (cos(a1) * tangent + sin(a1) * bitangent);
+			vec3 P1 = top + _radius * (cos(a0) * tangent + sin(a0) * bitangent);
+			vec3 P2 = top + _radius * (cos(a1) * tangent + sin(a1) * bitangent);
 
 			vec3 normal = axis;
 			vertices.push_back({ top, normal, vec2(0.5f, 0.5f) });

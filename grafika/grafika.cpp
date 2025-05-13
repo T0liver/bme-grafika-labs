@@ -179,7 +179,7 @@ class PhongShader : public Shader {
 	const char* fragmentSource = R"(
 		#version 330
 		precision highp float;
-		const int maxTriangles = 265;
+		const int maxTriangles = 256;
 
 		struct Light {
 			vec3 La, Le;
@@ -310,10 +310,10 @@ public:
 
 class Plane : public Object3d {
 public:
-	Plane(vec3 _center, vec2 _size, vec3 _normal) {
+	Plane(const vec3 _center, const vec2 _size, const vec3 _normal) {
 		std::vector<VertexData> verticles;
 		
-		_normal = normalize(_normal);
+		vec3 normal = normalize(_normal);
 		vec3 tangent = normalize(cross(_normal, vec3(0.0f, 0.0f, 1.0f)));
 		if (length(tangent) < 1e-6f) tangent = normalize(cross(_normal, vec3(0.0f, 1.0f, 0.0f)));
 		vec3 bitangent = normalize(cross(_normal, tangent));
@@ -338,12 +338,12 @@ public:
 
 class Cylinder : public Object3d {
 public:
-	Cylinder(vec3 base, vec3 axis, float radius, float height) {
-		axis = normalize(axis);
+	Cylinder(const vec3 base, const vec3 _axis, const float radius, const float height) {
+		vec3 axis = normalize(_axis);
 		vec3 top = base + axis * height;
 
-		vec3 tangent = normalize(cross(axis, vec3(0, 0, 1)));
-		if (length(tangent) < 1e-6f) tangent = normalize(cross(axis, vec3(0, 1, 0)));
+		vec3 tangent = normalize(cross(axis, vec3(0.0f, 0.0f, 1.0f)));
+		if (length(tangent) < 1e-6f) tangent = normalize(cross(axis, vec3(0.0f, 1.0f, 0.0f)));
 		vec3 bitangent = normalize(cross(axis, tangent));
 
 		const int slices = 6;
@@ -353,49 +353,49 @@ public:
 			float a0 = i * angleStep;
 			float a1 = (i + 1) % slices * angleStep;
 
-			vec3 p0 = base + radius * (cos(a0) * tangent + sin(a0) * bitangent);
-			vec3 p1 = base + radius * (cos(a1) * tangent + sin(a1) * bitangent);
-			vec3 p2 = top + radius * (cos(a0) * tangent + sin(a0) * bitangent);
-			vec3 p3 = top + radius * (cos(a1) * tangent + sin(a1) * bitangent);
+			vec3 P1 = base + radius * (cos(a0) * tangent + sin(a0) * bitangent);
+			vec3 P2 = base + radius * (cos(a1) * tangent + sin(a1) * bitangent);
+			vec3 P3 = top + radius * (cos(a0) * tangent + sin(a0) * bitangent);
+			vec3 P4 = top + radius * (cos(a1) * tangent + sin(a1) * bitangent);
 
-			vec3 n0 = normalize(p0 - base);
-			vec3 n1 = normalize(p1 - base);
-			vec3 n2 = normalize(p2 - top);
-			vec3 n3 = normalize(p3 - top);
+			vec3 N1 = normalize(P1 - base);
+			vec3 N2 = normalize(P2 - base);
+			vec3 N3 = normalize(P3 - top);
+			vec3 N4 = normalize(P4 - top);
 
-			vertices.push_back({ p0, n0, vec2(0, 0) });
-			vertices.push_back({ p1, n1, vec2(1, 0) });
-			vertices.push_back({ p2, n0, vec2(0, 1) });
+			vertices.push_back({ P1, N1, vec2(0.0f, 0.0f) });
+			vertices.push_back({ P2, N2, vec2(1.0f, 0.0f) });
+			vertices.push_back({ P3, N1, vec2(0.0f, 1.0f) });
 
-			vertices.push_back({ p2, n0, vec2(0, 1) });
-			vertices.push_back({ p1, n1, vec2(1, 0) });
-			vertices.push_back({ p3, n1, vec2(1, 1) });
+			vertices.push_back({ P3, N1, vec2(0.0f, 1.0f) });
+			vertices.push_back({ P2, N2, vec2(1.0f, 0.0f) });
+			vertices.push_back({ P4, N2, vec2(1.0f, 1.0f) });
 		}
 
 		for (int i = 0; i < slices; i++) {
 			float a0 = i * angleStep;
 			float a1 = (i + 1) % slices * angleStep;
 
-			vec3 p0 = base + radius * (cos(a0) * tangent + sin(a0) * bitangent);
-			vec3 p1 = base + radius * (cos(a1) * tangent + sin(a1) * bitangent);
+			vec3 P1 = base + radius * (cos(a0) * tangent + sin(a0) * bitangent);
+			vec3 P2 = base + radius * (cos(a1) * tangent + sin(a1) * bitangent);
 
 			vec3 normal = -axis;
 			vertices.push_back({ base, normal, vec2(0.5f, 0.5f) });
-			vertices.push_back({ p1, normal, vec2(0.5f + 0.5f * cos(a1), 0.5f + 0.5f * sin(a1)) });
-			vertices.push_back({ p0, normal, vec2(0.5f + 0.5f * cos(a0), 0.5f + 0.5f * sin(a0)) });
+			vertices.push_back({ P2, normal, vec2(0.5f + 0.5f * cos(a1), 0.5f + 0.5f * sin(a1)) });
+			vertices.push_back({ P1, normal, vec2(0.5f + 0.5f * cos(a0), 0.5f + 0.5f * sin(a0)) });
 		}
 
 		for (int i = 0; i < slices; i++) {
 			float a0 = i * angleStep;
 			float a1 = (i + 1) % slices * angleStep;
 
-			vec3 p0 = top + radius * (cos(a0) * tangent + sin(a0) * bitangent);
-			vec3 p1 = top + radius * (cos(a1) * tangent + sin(a1) * bitangent);
+			vec3 P1 = top + radius * (cos(a0) * tangent + sin(a0) * bitangent);
+			vec3 P2 = top + radius * (cos(a1) * tangent + sin(a1) * bitangent);
 
 			vec3 normal = axis;
 			vertices.push_back({ top, normal, vec2(0.5f, 0.5f) });
-			vertices.push_back({ p0, normal, vec2(0.5f + 0.5f * cos(a0), 0.5f + 0.5f * sin(a0)) });
-			vertices.push_back({ p1, normal, vec2(0.5f + 0.5f * cos(a1), 0.5f + 0.5f * sin(a1)) });
+			vertices.push_back({ P1, normal, vec2(0.5f + 0.5f * cos(a0), 0.5f + 0.5f * sin(a0)) });
+			vertices.push_back({ P2, normal, vec2(0.5f + 0.5f * cos(a1), 0.5f + 0.5f * sin(a1)) });
 		}
 
 		uploadVertexData(vertices);
@@ -422,7 +422,7 @@ public:
 
 	virtual void SetModelingTransform(mat4& M, mat4& Minv) {
 		M = translate(translation) * rotate(rotationAngle, rotationAxis) * scale(scaleing);
-		Minv = scale(vec3(1 / scaleing.x, 1 / scaleing.y, 1 / scaleing.z)) * rotate(-rotationAngle, rotationAxis) * translate(-translation);
+		Minv = scale(vec3(1.0f / scaleing.x, 1.0f / scaleing.y, 1.0f / scaleing.z)) * rotate(-rotationAngle, rotationAxis) * translate(-translation);
 	}
 
 	vec3 transformPoint(vec3 _point) const {

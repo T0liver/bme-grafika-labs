@@ -58,7 +58,6 @@ public:
 			d.y,
 			-d.x * sin(angle) + d.z * cos(angle)
 		) + wLookat;
-		printf("You spin my head right round, right round... by [45] degrees\n");
 	}
 };
 
@@ -93,7 +92,7 @@ public:
 class CheckerTexture : public Texture {
 public:
 	CheckerTexture(const int _width, const int _height,
-		const vec3 _color1 = vec3(0.0f, 0.2f, 0.6f), const vec3 _color2 = vec3(0.6f, 0.6f, 0.6f))
+		const vec3 _color1 = vec3(0.0f, 0.2f, 0.6f), const vec3 _color2 = vec3(0.4f, 0.4f, 0.4f))
 		: Texture(_width, _height)
 	{
 		std::vector<vec3> img;
@@ -212,58 +211,53 @@ class PhongShader : public Shader {
 
         out vec4 fragmentColor;
 
-		bool IsInShadow(vec3 point, vec3 lightDir) {
-			float eps = 1e-3;
-			vec3 rayOrig = point + eps * lightDir;
-
-			for (int i = 0; i < numOfTriangles; i++) {
-				vec3 p0 = triangleP1[i];
-				vec3 p1 = triangleP2[i];
-				vec3 p2 = triangleP3[i];
-
-				vec3 edge1 = p1 - p0;
-				vec3 edge2 = p2 - p0;
-				vec3 h = cross(lightDir, edge2);
-				float a = dot(edge1, h);
-				if (abs(a) < 1e-5) continue;
-
-				float f = 1.0 / a;
-				vec3 s = rayOrig - p0;
-				float u = f * dot(s, h);
-				if (u < 0.0 || u > 1.0) continue;
-
-				vec3 q = cross(s, edge1);
-				float v = f * dot(lightDir, q);
-				if (v < 0.0 || u + v > 1.0) continue;
-
-				float t = f * dot(edge2, q);
-				if (t > 0.0) return true;
-			}
-			return false;
-		}
-
-
 		void main() {
 			vec3 N = normalize(wNormal);
-			vec3 V = normalize(wView); 
+			vec3 V = normalize(wView);
 			if (dot(N, V) < 0) N = -N;
-			vec3 texColor = useTexture ? texture(diffuseTexture, texcoord).rgb : vec3(1.0f);
+			vec3 texColor = useTexture ? texture(diffuseTexture, texcoord).rgb : vec3(1.0);
 			vec3 ka = material.ka * texColor;
 			vec3 kd = material.kd * texColor;
 
 			vec3 radiance = vec3(0, 0, 0);
 			for(int i = 0; i < nLights; i++) {
 				vec3 L = normalize(wLight[i]);
-				
-				radiance += ka * lights[i].La;
+				vec3 H = normalize(L + V);
 
-				if (!IsInShadow(worldPos, normalize(wLight[i]))) {
-					float cost = max(dot(N, normalize(wLight[i])), 0.0);
-					vec3 H = normalize(normalize(wLight[i]) + V);
-					float cosd = max(dot(N, H), 0.0);
-					radiance += (kd * cost + material.ks * pow(cosd, material.shininess)) * lights[i].Le;
+				bool inShadow = false;
+				vec3 origin = worldPos + N * 0.01;
+				for (int j = 0; j < numOfTriangles; j++) {
+
+					const float eps = 1e-4;
+					vec3 edge1 = triangleP2[j] - triangleP1[j];
+					vec3 edge2 = triangleP3[j] - triangleP1[j];
+					vec3 h = cross(-lightDir, edge2);
+					float a = dot(edge1, h);
+					if (abs(a) < eps) continue;
+					float f = 1.0 / a;
+					vec3 s = origin - triangleP1[j];
+					float u = f * dot(s, h);
+					if (u < 0.0 || u > 1.0) continue;
+					vec3 q = cross(s, edge1);
+					float v = f * dot(-lightDir, q);
+					if (v < 0.0 || u + v > 1.0) continue;
+					float t = f * dot(edge2, q);
+
+					if (t > eps) {
+						inShadow = true;
+						break;
+					}
 				}
-				
+
+				if (inShadow) {
+					float cost = max(dot(N, L), 0), cosd = max(dot(N, H), 0);
+					radiance += ka * lights[i].La +
+								(kd * cost + material.ks * pow(cosd, material.shininess)) * lights[i].La * 2;
+				} else {
+					float cost = max(dot(N, L), 0), cosd = max(dot(N, H), 0);
+					radiance += ka * lights[i].La +
+								(kd * cost + material.ks * pow(cosd, material.shininess)) * lights[i].Le;
+				}
 			}
 			fragmentColor = vec4(radiance, 1);
 		}
@@ -535,7 +529,7 @@ public:
 		Shader* phongShader = new PhongShader();
 
 		// Materials
-		Material* boardMaterial = new Material(vec3(1.0f, 1.0f, 1.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 0.0f), 100.0f);
+		Material* boardMaterial = new Material(vec3(1.0f, 1.0f, 1.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f), 100.0f);
 		Material* goldenThing = new Material(vec3(0.17f, 0.35f, 1.5f), vec3(3.1f, 2.7f, 1.9f), vec3(0.51f, 1.05f, 4.5f), 150.0f);
 		Material* waterThing = new Material(vec3(1.3f, 1.3f, 1.3f), vec3(0.1f, 0.1f, 0.1f), vec3(3.9f, 3.9f, 3.9f), 80.0f);
 		Material* yellowPlastic = new Material(vec3(0.3f, 0.2f, 0.1f), vec3(2.0f, 2.0f, 2.0f), vec3(0.1f), 50.0f);

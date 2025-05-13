@@ -245,8 +245,16 @@ public:
 		setUniform(state.wEye, "wEye");
 
 		setUniform(0, "diffuseTexture");
-
+		bool useTexture = state.texture != nullptr;
+		setUniform(useTexture, "useTexture");
+		if (useTexture) {
+			state.texture->Bind(0);
+			// kell ez?
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		}
 		setUniformMaterial(*state.material, "material");
+
 		setUniform((int)state.lights.size(), "nLights");
 		for (unsigned int i = 0; i < state.lights.size(); i++) {
 			setUniformLight(state.lights[i], std::string("lights[") + std::to_string(i) + std::string("]"));

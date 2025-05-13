@@ -494,10 +494,10 @@ public:
 	void eval(Dnum2& U, Dnum2& V, Dnum2& X, Dnum2& Y, Dnum2& Z) {
 		U = U * 2.0f * M_PI;
 
-		Dnum2 r = (Dnum2(1.0f) - V); // sugár csökken fentrol lefelé
+		Dnum2 r = (Dnum2(1.0f) - V); // sugÃ¡r csÃ¶kken fentrol lefelÃ©
 		X = r * Cos(U);
 		Y = r * Sin(U);
-		Z = V * 2.0f - 1.0f; // -1 (csúcs) - 1 (alap)
+		Z = V * 2.0f - 1.0f; // -1 (csÃºcs) - 1 (alap)
 	}
 };
 

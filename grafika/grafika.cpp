@@ -32,7 +32,7 @@ typedef Dnum<vec2> Dnum2;
 const int tessellationLevel = 20;
 const int windowWidth = 600, windowHeight = 600;
 
-struct Camera { // 3D camera
+struct Camera {
 	vec3 wEye, wLookat, wVup;
 	float fov, asp, fp, bp;
 public:
@@ -176,7 +176,6 @@ class PhongShader : public Shader {
 		}
 	)";
 
-	// fragment shader in GLSL
 	const char* fragmentSource = R"(
 		#version 330
 		precision highp float;
@@ -239,7 +238,7 @@ public:
 	PhongShader() { create(vertexSource, fragmentSource); }
 
 	void Bind(RenderState state) {
-		Use(); 		// make this program run
+		Use();
 		setUniform(state.MVP, "MVP");
 		setUniform(state.M, "M");
 		setUniform(state.Minv, "Minv");
@@ -458,7 +457,6 @@ class Kepszintezis : public glApp {
 public:
 	Kepszintezis() : glApp("Kepszintezis") {}
 
-	// Initialization, create an OpenGL context
 	void onInitialization() {
 		glViewport(0, 0, windowWidth, windowHeight);
 		glEnable(GL_DEPTH_TEST);
@@ -466,10 +464,9 @@ public:
 		scene.Build();
 	}
 
-	// Window has become invalid: Redraw
 	void onDisplay() {
-		glClearColor(0.5f, 0.5f, 0.8f, 1.0f);// background color 
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear the screen
+		glClearColor(0.5f, 0.5f, 0.8f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		scene.Render();
 	}
 

@@ -336,6 +336,73 @@ public:
 	}
 };
 
+class Cylinder : public Object3d {
+public:
+	Cylinder(vec3 base, vec3 axis, float radius, float height) {
+		axis = normalize(axis);
+		vec3 top = base + axis * height;
+
+		vec3 tangent = normalize(cross(axis, vec3(0, 0, 1)));
+		if (length(tangent) < 1e-6f) tangent = normalize(cross(axis, vec3(0, 1, 0)));
+		vec3 bitangent = normalize(cross(axis, tangent));
+
+		const int slices = 6;
+		const float angleStep = 2.0f * M_PI / slices;
+
+		for (int i = 0; i < slices; i++) {
+			float a0 = i * angleStep;
+			float a1 = (i + 1) % slices * angleStep;
+
+			vec3 p0 = base + radius * (cos(a0) * tangent + sin(a0) * bitangent);
+			vec3 p1 = base + radius * (cos(a1) * tangent + sin(a1) * bitangent);
+			vec3 p2 = top + radius * (cos(a0) * tangent + sin(a0) * bitangent);
+			vec3 p3 = top + radius * (cos(a1) * tangent + sin(a1) * bitangent);
+
+			vec3 n0 = normalize(p0 - base);
+			vec3 n1 = normalize(p1 - base);
+			vec3 n2 = normalize(p2 - top);
+			vec3 n3 = normalize(p3 - top);
+
+			vertices.push_back({ p0, n0, vec2(0, 0) });
+			vertices.push_back({ p1, n1, vec2(1, 0) });
+			vertices.push_back({ p2, n0, vec2(0, 1) });
+
+			vertices.push_back({ p2, n0, vec2(0, 1) });
+			vertices.push_back({ p1, n1, vec2(1, 0) });
+			vertices.push_back({ p3, n1, vec2(1, 1) });
+		}
+
+		for (int i = 0; i < slices; i++) {
+			float a0 = i * angleStep;
+			float a1 = (i + 1) % slices * angleStep;
+
+			vec3 p0 = base + radius * (cos(a0) * tangent + sin(a0) * bitangent);
+			vec3 p1 = base + radius * (cos(a1) * tangent + sin(a1) * bitangent);
+
+			vec3 normal = -axis;
+			vertices.push_back({ base, normal, vec2(0.5f, 0.5f) });
+			vertices.push_back({ p1, normal, vec2(0.5f + 0.5f * cos(a1), 0.5f + 0.5f * sin(a1)) });
+			vertices.push_back({ p0, normal, vec2(0.5f + 0.5f * cos(a0), 0.5f + 0.5f * sin(a0)) });
+		}
+
+		for (int i = 0; i < slices; i++) {
+			float a0 = i * angleStep;
+			float a1 = (i + 1) % slices * angleStep;
+
+			vec3 p0 = top + radius * (cos(a0) * tangent + sin(a0) * bitangent);
+			vec3 p1 = top + radius * (cos(a1) * tangent + sin(a1) * bitangent);
+
+			vec3 normal = axis;
+			vertices.push_back({ top, normal, vec2(0.5f, 0.5f) });
+			vertices.push_back({ p0, normal, vec2(0.5f + 0.5f * cos(a0), 0.5f + 0.5f * sin(a0)) });
+			vertices.push_back({ p1, normal, vec2(0.5f + 0.5f * cos(a1), 0.5f + 0.5f * sin(a1)) });
+		}
+
+		uploadVertexData(vertices);
+	}
+};
+
+
 
 struct Object {
 	Shader* shader;
@@ -414,6 +481,10 @@ public:
 		Object* board = new Object(phongShader, boardMaterial, checkerPlane, boardTexture);
 		objects.push_back(board);
 
+		Object3d* yellowCylinder = new Cylinder(vec3(-1.0f, -1.0f, 0.0f), vec3(0.0f, 1.0f, 0.1f), 0.3f, 2.0f);
+		Object* yellowC = new Object(phongShader, yellowPlastic, yellowCylinder);
+		objects.push_back(yellowC);
+
 		// Camera
 		camera.wEye = vec3(0.0f, 1.0f, 4.0f);
 		camera.wLookat = vec3(0.0f, 0.0f, 0.0f);
@@ -487,8 +558,8 @@ public:
 	}
 	*/
 
-	void Spin() {
-		camera.Spin();
+	void Spin(const float angle = M_PI_4) {
+		camera.Spin(angle);
 	}
 };
 

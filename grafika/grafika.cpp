@@ -199,7 +199,7 @@ class PhongShader : public Shader {
 		uniform vec3 triangleP1[maxTriangles];
 		uniform vec3 triangleP2[maxTriangles];
 		uniform vec3 triangleP3[maxTriangles];
-		uniform vec3 numOfTriangles;
+		uniform int numOfTriangles;
 		uniform vec3 lightDir;
 		
 		uniform bool useTexture;
@@ -212,10 +212,41 @@ class PhongShader : public Shader {
 
         out vec4 fragmentColor;
 
+		bool IsInShadow(vec3 point, vec3 lightDir) {
+			float eps = 1e-3;
+			vec3 rayOrig = point + eps * lightDir;
+
+			for (int i = 0; i < numOfTriangles; i++) {
+				vec3 p0 = triangleP1[i];
+				vec3 p1 = triangleP2[i];
+				vec3 p2 = triangleP3[i];
+
+				vec3 edge1 = p1 - p0;
+				vec3 edge2 = p2 - p0;
+				vec3 h = cross(lightDir, edge2);
+				float a = dot(edge1, h);
+				if (abs(a) < 1e-5) continue;
+
+				float f = 1.0 / a;
+				vec3 s = rayOrig - p0;
+				float u = f * dot(s, h);
+				if (u < 0.0 || u > 1.0) continue;
+
+				vec3 q = cross(s, edge1);
+				float v = f * dot(lightDir, q);
+				if (v < 0.0 || u + v > 1.0) continue;
+
+				float t = f * dot(edge2, q);
+				if (t > 0.0) return true;
+			}
+			return false;
+		}
+
+
 		void main() {
 			vec3 N = normalize(wNormal);
 			vec3 V = normalize(wView); 
-			if (dot(N, V) < 0) N = -N;	// prepare for one-sided surfaces like Mobius or Klein
+			if (dot(N, V) < 0) N = -N;
 			vec3 texColor = useTexture ? texture(diffuseTexture, texcoord).rgb : vec3(1.0f);
 			vec3 ka = material.ka * texColor;
 			vec3 kd = material.kd * texColor;
@@ -223,12 +254,16 @@ class PhongShader : public Shader {
 			vec3 radiance = vec3(0, 0, 0);
 			for(int i = 0; i < nLights; i++) {
 				vec3 L = normalize(wLight[i]);
-				vec3 H = normalize(L + V);
-				float cost = max(dot(N,L), 0);
-				float cosd = max(dot(N,H), 0);
+				
+				radiance += ka * lights[i].La;
 
-				radiance += ka * lights[i].La + 
-                           (kd * cost + material.ks * pow(cosd, material.shininess)) * lights[i].Le;
+				if (!IsInShadow(worldPos, normalize(wLight[i]))) {
+					float cost = max(dot(N, normalize(wLight[i])), 0.0);
+					vec3 H = normalize(normalize(wLight[i]) + V);
+					float cosd = max(dot(N, H), 0.0);
+					radiance += (kd * cost + material.ks * pow(cosd, material.shininess)) * lights[i].Le;
+				}
+				
 			}
 			fragmentColor = vec4(radiance, 1);
 		}

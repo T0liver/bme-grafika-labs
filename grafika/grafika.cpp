@@ -180,6 +180,7 @@ class PhongShader : public Shader {
 	const char* fragmentSource = R"(
 		#version 330
 		precision highp float;
+		const int maxTriangles = 265;
 
 		struct Light {
 			vec3 La, Le;
@@ -192,16 +193,25 @@ class PhongShader : public Shader {
 		};
 
 		uniform Material material;
-		uniform Light[8] lights;    // light sources 
-		uniform int   nLights;
+		uniform Light[8] lights;
+		uniform int nLights;
 		uniform sampler2D diffuseTexture;
 
-		in  vec3 wNormal;       // interpolated world sp normal
-		in  vec3 wView;         // interpolated world sp view
-		in  vec3 wLight[8];     // interpolated world sp illum dir
-		in  vec2 texcoord;
+		uniform vec3 triangleP1[maxTriangles];
+		uniform vec3 triangleP2[maxTriangles];
+		uniform vec3 triangleP3[maxTriangles];
+		uniform vec3 numOfTriangles;
+		uniform vec3 lightDir;
 		
-        out vec4 fragmentColor; // output goes to frame buffer
+		uniform bool useTexure;
+
+		in vec3 wNormal;
+		in vec3 wView;
+		in vec3 wLight[8];
+		in vec3 worldPos;
+		in vec2 texcoord;
+
+        out vec4 fragmentColor;
 
 		void main() {
 			vec3 N = normalize(wNormal);
@@ -312,6 +322,13 @@ public:
 		Minv = scale(vec3(1 / scaleing.x, 1 / scaleing.y, 1 / scaleing.z)) * rotate(-rotationAngle, rotationAxis) * translate(-translation);
 	}
 
+	vec3 transformPoint(vec3 _point) const {
+		mat4 M, Minv;
+		const_cast<Object*>(this)->SetModelingTransform(M, Minv);
+		vec4 wCords = M * vec4(_point.x, _point.y, _point.z, 1.0f);
+		return vec3(wCords.x, wCords.y, wCords.z);
+	}
+
 	void Draw(RenderState state) {
 		mat4 M, Minv;
 		SetModelingTransform(M, Minv);
@@ -334,7 +351,7 @@ public:
 };
 
 class Scene {
-	std::vector<Object3d*> objects;
+	std::vector<Object*> objects;
 	std::vector<vec3> trisP1, trisP2, trisP3;
 	std::vector<Light> lights;
 	Camera camera;
@@ -368,6 +385,52 @@ public:
 		lights[0].wLightPos = vec4(1.0f, 1.0f, 1.0f, 0.0f);
 		lights[0].La = vec3(0.4f, 0.4f, 0.4f);
 		lights[0].Le = vec3(3.0f, 3.0f, 3.0f);
+
+		// Upload the objects (and triangles) to the GPU
+		trisP1.clear();
+		trisP2.clear();
+		trisP3.clear();
+
+		for (Object* obj : objects) {
+			Object3d* mesh = obj->geoObj;
+			if (!mesh)
+				continue;
+			const std::vector<VertexData>& verts = mesh->getVertices();
+			for (size_t i = 0; i + 2 < verts.size(); i += 3) {
+				trisP1.push_back(obj->transformPoint(verts[i + 0].position));
+				trisP2.push_back(obj->transformPoint(verts[i + 1].position));
+				trisP3.push_back(obj->transformPoint(verts[i + 2].position));
+			}
+		}
+
+		std::vector<float> trisP1flat, trisP2flat, trisP3flat;
+		for (size_t i = 0; i < trisP1.size(); ++i) {
+			trisP1flat.push_back(trisP1[i].x);
+			trisP1flat.push_back(trisP1[i].y);
+			trisP1flat.push_back(trisP1[i].z);
+
+			trisP2flat.push_back(trisP2[i].x);
+			trisP2flat.push_back(trisP2[i].y);
+			trisP2flat.push_back(trisP2[i].z);
+
+			trisP3flat.push_back(trisP3[i].x);
+			trisP3flat.push_back(trisP3[i].y);
+			trisP3flat.push_back(trisP3[i].z);
+		}
+
+		// Upload the triangles to the GPU
+		int currentProgram;
+		glGetIntegerv(GL_CURRENT_PROGRAM, &currentProgram);
+		int loc0 = glGetUniformLocation(currentProgram, "triangleP1");
+		int loc1 = glGetUniformLocation(currentProgram, "triangleP2");
+		int loc2 = glGetUniformLocation(currentProgram, "triangleP3");
+		int locN = glGetUniformLocation(currentProgram, "numOfTriangles");
+		vec3 dir = normalize(vec3(-lights[0].wLightPos.x, -lights[0].wLightPos.y, -lights[0].wLightPos.z));
+		glUniform3fv(glGetUniformLocation(currentProgram, "lightDir"), 1, &dir.x);
+		glUniform1i(locN, (GLint)trisP1.size());
+		glUniform3fv(loc0, trisP1.size(), trisP1flat.data());
+		glUniform3fv(loc1, trisP2.size(), trisP2flat.data());
+		glUniform3fv(loc2, trisP3.size(), trisP3flat.data());
 	}
 
 	void Render() {
@@ -376,7 +439,7 @@ public:
 		state.V = camera.V();
 		state.P = camera.P();
 		state.lights = lights;
-		for (Object3d* obj : objects) obj->Draw();
+		for (Object* obj : objects) obj->Draw(state);
 	}
 
 	/** deprecated

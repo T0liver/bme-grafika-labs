@@ -92,7 +92,7 @@ public:
 class CheckerTexture : public Texture {
 public:
 	CheckerTexture(const int _width, const int _height,
-		const vec3 _color1 = vec3(0.0f, 0.2f, 0.6f), const vec3 _color2 = vec3(0.4f, 0.4f, 0.4f))
+		const vec3 _color1 = vec3(0.0f, 0.1f, 0.3f), const vec3 _color2 = vec3(0.3f, 0.3f, 0.3f))
 		: Texture(_width, _height)
 	{
 		std::vector<vec3> img;
@@ -215,6 +215,7 @@ class PhongShader : public Shader {
 			vec3 N = normalize(wNormal);
 			vec3 V = normalize(wView);
 			if (dot(N, V) < 0) N = -N;
+
 			vec3 texColor = useTexture ? texture(diffuseTexture, texcoord).rgb : vec3(1.0);
 			vec3 ka = material.ka * texColor;
 			vec3 kd = material.kd * texColor;
@@ -252,7 +253,7 @@ class PhongShader : public Shader {
 				if (inShadow) {
 					float cost = max(dot(N, L), 0), cosd = max(dot(N, H), 0);
 					radiance += ka * lights[i].La +
-								(kd * cost + material.ks * pow(cosd, material.shininess)) * lights[i].La * 2;
+								(kd * cost + material.ks * pow(cosd, material.shininess)) * lights[i].La;
 				} else {
 					float cost = max(dot(N, L), 0), cosd = max(dot(N, H), 0);
 					radiance += ka * lights[i].La +
@@ -342,7 +343,6 @@ public:
 	Plane(const vec3 _center, const vec2 _size, const vec3 _normal) {
 		std::vector<VertexData> verticles;
 		
-		vec3 normal = normalize(_normal);
 		vec3 tangent = normalize(cross(_normal, vec3(0.0f, 0.0f, 1.0f)));
 		if (length(tangent) < 1e-6f) tangent = normalize(cross(_normal, vec3(0.0f, 1.0f, 0.0f)));
 		vec3 bitangent = normalize(cross(_normal, tangent));
@@ -389,8 +389,6 @@ public:
 
 			vec3 N1 = normalize(P1 - _base);
 			vec3 N2 = normalize(P2 - _base);
-			vec3 N3 = normalize(P3 - top);
-			vec3 N4 = normalize(P4 - top);
 
 			vertices.push_back({ P1, N1, vec2(0.0f, 0.0f) });
 			vertices.push_back({ P2, N2, vec2(1.0f, 0.0f) });
@@ -529,12 +527,12 @@ public:
 		Shader* phongShader = new PhongShader();
 
 		// Materials
-		Material* boardMaterial = new Material(vec3(1.0f, 1.0f, 1.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f), 100.0f);
+		Material* boardMaterial = new Material(vec3(1.0f, 1.0f, 1.0f), vec3(0.0f, 0.0f, 0.0f), vec3(2.0f), 100.0f);
 		Material* goldenThing = new Material(vec3(0.17f, 0.35f, 1.5f), vec3(3.1f, 2.7f, 1.9f), vec3(0.51f, 1.05f, 4.5f), 150.0f);
 		Material* waterThing = new Material(vec3(1.3f, 1.3f, 1.3f), vec3(0.1f, 0.1f, 0.1f), vec3(3.9f, 3.9f, 3.9f), 80.0f);
-		Material* yellowPlastic = new Material(vec3(0.3f, 0.2f, 0.1f), vec3(2.0f, 2.0f, 2.0f), vec3(0.1f), 50.0f);
-		Material* cyanPlastic = new Material(vec3(0.1f, 0.2f, 0.3f), vec3(2.0f, 2.0f, 2.0f), vec3(0.1f, 0.1f, 0.1f), 100.0f);
-		Material* magentaPlastic = new Material(vec3(0.3f, 0.0f, 0.2f), vec3(2.0f, 2.0f, 2.0f), vec3(0.1f, 0.1f, 0.1f), 20.0f);
+		Material* yellowPlastic = new Material(vec3(0.3f, 0.2f, 0.1f), vec3(2.0f, 2.0f, 2.0f), vec3(0.9f, 0.6f, 0.3f), 50.0f);
+		Material* cyanPlastic = new Material(vec3(0.1f, 0.2f, 0.3f), vec3(2.0f, 2.0f, 2.0f), vec3(0.1f, 0.5f, 0.8f), 100.0f);
+		Material* magentaPlastic = new Material(vec3(0.3f, 0.0f, 0.2f), vec3(2.0f, 2.0f, 2.0f), vec3(0.8f, 0.1f, 0.5f), 20.0f);
 
 		// Textures
 		Texture* boardTexture = new CheckerTexture(20, 20);
@@ -573,7 +571,7 @@ public:
 		lights.resize(1);
 		lights[0].wLightPos = vec4(1.0f, 1.0f, 1.0f, 0.0f);
 		lights[0].La = vec3(0.4f, 0.4f, 0.4f);
-		lights[0].Le = vec3(3.0f, 3.0f, 3.0f);
+		lights[0].Le = vec3(2.0f, 2.0f, 2.0f);
 
 		// Upload the objects (and triangles) to the GPU
 		trisP1.clear();
@@ -655,13 +653,12 @@ public:
 	}
 
 	void onDisplay() {
-		glClearColor(0.5f, 0.5f, 0.8f, 1.0f);
+		glClearColor(0.4f, 0.4f, 0.4f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		scene.Render();
 	}
 
 	void onKeyboard(int key) override {
-		printf("Key pressed: %d\t", key);
 		if (key == 'a') {
 			scene.Spin();
 			refreshScreen();

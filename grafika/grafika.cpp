@@ -1,7 +1,7 @@
 #include "framework.h"
 
 const int tessellationLevel = 20;
-const int windowWidth = 600, windowHeight = 600;
+const int windowWidth = 1200, windowHeight = 600;
 
 struct Camera {
 	vec3 wEye, wLookat, wVup;
@@ -29,6 +29,33 @@ public:
 			d.y,
 			-d.x * sin(angle) + d.z * cos(angle)
 		) + wLookat;
+	}
+
+	void Move(const int dir, float delta) {
+		vec3 ward;
+		switch (dir)
+		{
+		// forward
+		case 1:
+			ward = normalize(wLookat - wEye);
+			break;
+		// backward
+		case 2:
+			ward = normalize(wEye - wLookat);
+			break;
+		// right
+		case 3:
+			ward = normalize(cross(normalize(wLookat - wEye), wVup));
+			break;
+		// left
+		case 4:
+			ward = normalize(cross(wVup, normalize(wLookat - wEye)));
+			break;
+		default:
+			return;
+		}
+		wEye += vec3(ward.x * delta, 0.0f, ward.z * delta);
+		wLookat += vec3(ward.x * delta, 0.0f, ward.z * delta);
 	}
 };
 
@@ -609,12 +636,16 @@ public:
 	void Spin(const float angle = M_PI_4) {
 		camera.Spin(angle);
 	}
+
+	void Move(const int dir, float delta = 0.2f) {
+		camera.Move(dir, delta);
+	}
 };
 
 class Kepszintezis : public glApp {
 	Scene scene;
 public:
-	Kepszintezis() : glApp("Kepszintezis") {}
+	Kepszintezis() : glApp(3, 3, windowWidth, windowHeight, "Kepszintezis") {}
 
 	void onInitialization() {
 		glViewport(0, 0, windowWidth, windowHeight);
@@ -630,9 +661,28 @@ public:
 	}
 
 	void onKeyboard(int key) override {
-		if (key == 'a') {
+		if (key == 'q') {
 			scene.Spin();
 			refreshScreen();
+		}
+		else if (key == 'w') {
+			scene.Move(1);
+			refreshScreen();
+		}
+		else if (key == 's') {
+			scene.Move(2);
+			refreshScreen();
+		}
+		else if (key == 'd') {
+			scene.Move(3);
+			refreshScreen();
+		}
+		else if (key == 'a') {
+			scene.Move(4);
+			refreshScreen();
+		}
+		else if (key == 27) {
+			exit(0);
 		}
 	}
 };

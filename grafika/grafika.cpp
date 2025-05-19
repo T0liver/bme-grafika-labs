@@ -378,8 +378,10 @@ public:
 		vec3 axis = normalize(_axis);
 		vec3 top = _base + axis * _height;
 
-		vec3 tangent = normalize(cross(axis, vec3(0.0f, 0.0f, 1.0f)));
-		if (length(tangent) < 1e-6f) tangent = normalize(cross(axis, vec3(0.0f, 1.0f, 0.0f)));
+		vec3 up = vec3(0.0f, 0.0f, 1.0f);
+		if (abs(dot(axis, up)) > 0.999f)
+			up = vec3(0.0f, 1.0f, 0.0f);
+		vec3 tangent = normalize(cross(up, axis));
 		vec3 bitangent = normalize(cross(axis, tangent));
 
 		const int slices = 6;
@@ -484,7 +486,7 @@ public:
 		if (length(tangent) < 1e-6f) tangent = normalize(cross(axis, vec3(0.0f, 1.0f, 0.0f)));
 		vec3 bitangent = normalize(cross(axis, tangent));
 
-		const int slices = 12;
+		const int slices = 6;
 
 		const float angleStep = 2.0f * M_PI / slices;
 
@@ -614,10 +616,10 @@ public:
 		Texture* boardTexture = new CheckerTexture(20, 20);
 
 		// Create objects by setting up their vertex data on the GPU
-		Object3d* checkerPlane = new Plane(vec3(0.0f, -1.0f, 0.0f), vec2(20.0f, 20.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object3d* checkerPlane = new Plane(vec3(0.0f, -0.75f, 0.0f), vec2(20.0f, 20.0f), vec3(0.0f, 1.0f, 0.0f));
 		Object* board = new Object(phongShader, boardMaterial, checkerPlane, boardTexture);
 		objects.push_back(board);
-
+		/*
 		Object3d* goldenCylinder = new Cylinder(vec3(1.0f, -1.0f, 0.0f), vec3(0.1f, 1.0f, 0.0f), 0.3f, 2.0f);
 		Object* goldenC = new Object(phongShader, goldenThing, goldenCylinder);
 		objects.push_back(goldenC);
@@ -640,7 +642,43 @@ public:
 
 		Object3d* frustum = new Frustum(vec3(0.0f, 1.0f, -0.8f), vec3(0.2f, -1.0f, 0.0f), 2.0f, 0.2f, 0.4f);
 		Object* frustumObject = new Object(phongShader, magentaPlastic, frustum);
-		objects.push_back(frustumObject);
+		objects.push_back(frustumObject);*/
+
+		// here comes the car (doo-d-doo-doo...)
+		Material* blackRubber = new Material(vec3(0.02f), vec3(0.5f), vec3(0.1f), 10.0f);
+		Material* carBodyMat = new Material(vec3(0.1f, 0.0f, 0.0f), vec3(1.0f), vec3(0.8f, 0.0f, 0.0f), 100.0f);
+		Material* carPitMat = new Material(vec3(0.4f, 0.4f, 1.2f), vec3(0.8f), vec3(0.5f, 0.5f, 0.9f), 120.0f);
+
+		vec3 carBase = vec3(0.0f, 0.0f, 0.0f);
+		vec3 carAxis = vec3(1.0f, 0.0f, 0.0f);
+
+		Object3d* carBodyObj = new Cylinder(carBase, carAxis, 0.5f, 2.0f);
+		Object* carBody = new Object(phongShader, carBodyMat, carBodyObj);
+		objects.push_back(carBody);
+
+		Object3d* carBodyObj2 = new Frustum(carBase + vec3(-1.0f, 0.0f, 0.0f), carAxis, 1.0f, 0.2f, 0.5f);
+		Object* carBody2 = new Object(phongShader, carBodyMat, carBodyObj2);
+		objects.push_back(carBody2);
+
+		Object3d* carBodyObj3 = new Cylinder(carBase + vec3(0.3f, 0.4f, 0.0f), carAxis, 0.4f, 1.5f);
+		Object* carBody3 = new Object(phongShader, carPitMat, carBodyObj3);
+		objects.push_back(carBody3);
+
+		Object3d* wheel1Obj = new Cylinder(carBase + vec3(1.5f, -0.4f, 0.25f), carAxis + vec3(-1.0f, 0.0f, 1.0f), 0.4f, 0.3f);
+		Object* wheel1 = new Object(phongShader, blackRubber, wheel1Obj);
+		objects.push_back(wheel1);
+
+		Object3d* wheel2Obj = new Cylinder(carBase + vec3(0.5f, -0.4f, 0.25f), carAxis + vec3(-1.0f, 0.0f, 1.0f), 0.4f, 0.3f);
+		Object* wheel2 = new Object(phongShader, blackRubber, wheel2Obj);
+		objects.push_back(wheel2);
+
+		Object3d* wheel3Obj = new Cylinder(carBase + vec3(1.5f, -0.4f, -0.55f), carAxis + vec3(-1.0f, 0.0f, 1.0f), 0.4f, 0.3f);
+		Object* wheel3 = new Object(phongShader, blackRubber, wheel3Obj);
+		objects.push_back(wheel3);
+
+		Object3d* wheel4Obj = new Cylinder(carBase + vec3(0.5f, -0.4f, -0.55f), carAxis + vec3(-1.0f, 0.0f, 1.0f), 0.4f, 0.3f);
+		Object* wheel4 = new Object(phongShader, blackRubber, wheel4Obj);
+		objects.push_back(wheel4);
 
 		// Camera
 		camera.wEye = vec3(0.0f, 1.0f, 4.0f);

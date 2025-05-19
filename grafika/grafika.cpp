@@ -1,36 +1,7 @@
 #include "framework.h"
 
-template<class T> struct Dnum { // Dual numbers for automatic derivation
-	float f; // function value
-	T d;  // derivatives
-	Dnum(float f0 = 0, T d0 = T(0)) { f = f0, d = d0; }
-	Dnum operator+(Dnum r) { return Dnum(f + r.f, d + r.d); }
-	Dnum operator-(Dnum r) { return Dnum(f - r.f, d - r.d); }
-	Dnum operator*(Dnum r) {
-		return Dnum(f * r.f, f * r.d + d * r.f);
-	}
-	Dnum operator/(Dnum r) {
-		return Dnum(f / r.f, (r.f * d - r.d * f) / r.f / r.f);
-	}
-};
-
-// Elementary functions prepared for the chain rule as well
-template<class T> Dnum<T> Exp(Dnum<T> g) { return Dnum<T>(expf(g.f), expf(g.f) * g.d); }
-template<class T> Dnum<T> Sin(Dnum<T> g) { return  Dnum<T>(sinf(g.f), cosf(g.f) * g.d); }
-template<class T> Dnum<T> Cos(Dnum<T>  g) { return  Dnum<T>(cosf(g.f), -sinf(g.f) * g.d); }
-template<class T> Dnum<T> Tan(Dnum<T>  g) { return Sin(g) / Cos(g); }
-template<class T> Dnum<T> Sinh(Dnum<T> g) { return  Dnum<T>(sinh(g.f), cosh(g.f) * g.d); }
-template<class T> Dnum<T> Cosh(Dnum<T> g) { return  Dnum<T>(cosh(g.f), sinh(g.f) * g.d); }
-template<class T> Dnum<T> Tanh(Dnum<T> g) { return Sinh(g) / Cosh(g); }
-template<class T> Dnum<T> Log(Dnum<T> g) { return  Dnum<T>(logf(g.f), g.d / g.f); }
-template<class T> Dnum<T> Pow(Dnum<T> g, float n) {
-	return  Dnum<T>(powf(g.f, n), n * powf(g.f, n - 1) * g.d);
-}
-
-typedef Dnum<vec2> Dnum2;
-
 const int tessellationLevel = 20;
-const int windowWidth = 600, windowHeight = 600;
+const int windowWidth = 1200, windowHeight = 600;
 
 struct Camera {
 	vec3 wEye, wLookat, wVup;
@@ -58,6 +29,42 @@ public:
 			d.y,
 			-d.x * sin(angle) + d.z * cos(angle)
 		) + wLookat;
+	}
+
+	void Move(const int dir, float delta) {
+		vec3 ward;
+		switch (dir)
+		{
+		// forward
+		case 1:
+			ward = normalize(wLookat - wEye);
+			break;
+		// backward
+		case 2:
+			ward = normalize(wEye - wLookat);
+			break;
+		// right
+		case 3:
+			ward = normalize(cross(normalize(wLookat - wEye), wVup));
+			break;
+		// left
+		case 4:
+			ward = normalize(cross(wVup, normalize(wLookat - wEye)));
+			break;
+		default:
+			return;
+		}
+		wEye += vec3(ward.x * delta, 0.0f, ward.z * delta);
+		wLookat += vec3(ward.x * delta, 0.0f, ward.z * delta);
+	}
+
+	void LookAround(float yaw, float pitch) {
+		vec3 direction;
+		direction.x = cos(radians(yaw)) * cos(radians(pitch));
+		direction.y = sin(radians(pitch));
+		direction.z = sin(radians(yaw)) * cos(radians(pitch));
+		direction = normalize(direction);
+		wLookat = wEye + direction;
 	}
 };
 
@@ -638,12 +645,26 @@ public:
 	void Spin(const float angle = M_PI_4) {
 		camera.Spin(angle);
 	}
+
+	void Move(const int dir, float delta = 0.2f) {
+		camera.Move(dir, delta);
+	}
+
+	void LookAround(float yaw, float pitch) {
+		camera.LookAround(yaw, pitch);
+	}
 };
 
 class Kepszintezis : public glApp {
 	Scene scene;
+
+	float yaw = -90.0f;
+	float pitch = 0.0f;
+	float lastX = windowWidth / 2.0f;
+	float lastY = windowHeight / 2.0f;
+	bool firstMouse = true;
 public:
-	Kepszintezis() : glApp("Kepszintezis") {}
+	Kepszintezis() : glApp(3, 3, windowWidth, windowHeight, "Kepszintezis") {}
 
 	void onInitialization() {
 		glViewport(0, 0, windowWidth, windowHeight);
@@ -653,17 +674,71 @@ public:
 	}
 
 	void onDisplay() {
+		if (paused) return;
 		glClearColor(0.4f, 0.4f, 0.4f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		scene.Render();
 	}
 
 	void onKeyboard(int key) override {
-		if (key == 'a') {
+		printf("Key pressed: %d\n", key);
+		if (key == 'q') {
+			if (paused) return;
 			scene.Spin();
 			refreshScreen();
 		}
+		else if (key == 'w') {
+			if (paused) return;
+			scene.Move(1);
+			refreshScreen();
+		}
+		else if (key == 's') {
+			if (paused) return;
+			scene.Move(2);
+			refreshScreen();
+		}
+		else if (key == 'd') {
+			if (paused) return;
+			scene.Move(3);
+			refreshScreen();
+		}
+		else if (key == 'a') {
+			if (paused) return;
+			scene.Move(4);
+			refreshScreen();
+		}
+		else if (key == 'p') {
+			paused = !paused;
+		}
 	}
+
+	void onMouseMotion(int x, int y) override {
+		if (paused) return;
+
+		if (firstMouse) {
+			lastX = x;
+			lastY = y;
+			firstMouse = false;
+			return;
+		}
+
+		float sensitivity = 0.1f;
+		float offsetX = (x - lastX) * sensitivity;
+		float offsetY = (lastY - y) * sensitivity;
+
+		lastX = x;
+		lastY = y;
+
+		yaw += offsetX;
+		pitch += offsetY;
+
+		if (pitch > 89.0f) pitch = 89.0f;
+		if (pitch < -89.0f) pitch = -89.0f;
+
+		scene.LookAround(yaw, pitch);
+		refreshScreen();
+	}
+
 };
 
 Kepszintezis app;

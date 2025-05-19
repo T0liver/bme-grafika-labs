@@ -474,6 +474,75 @@ public:
 	}
 };
 
+class Frustum : public Object3d {
+public:
+	Frustum(const vec3 _base, const vec3 _axisDir, const float _height, const float _radiusBottom, const float _radiusTop) {
+		vec3 axis = normalize(_axisDir);
+		vec3 top = _base + axis * _height;
+
+		vec3 tangent = normalize(cross(axis, vec3(0.0f, 0.0f, 1.0f)));
+		if (length(tangent) < 1e-6f) tangent = normalize(cross(axis, vec3(0.0f, 1.0f, 0.0f)));
+		vec3 bitangent = normalize(cross(axis, tangent));
+
+		const int slices = 12;
+
+		const float angleStep = 2.0f * M_PI / slices;
+
+		for (int i = 0; i < slices; ++i) {
+			float a0 = i * angleStep;
+			float a1 = (i + 1) % slices * angleStep;
+
+			vec3 dir0 = cos(a0) * tangent + sin(a0) * bitangent;
+			vec3 dir1 = cos(a1) * tangent + sin(a1) * bitangent;
+
+			vec3 p0b = _base + _radiusBottom * dir0;
+			vec3 p1b = _base + _radiusBottom * dir1;
+			vec3 p0t = top + _radiusTop * dir0;
+			vec3 p1t = top + _radiusTop * dir1;
+
+			vec3 n0 = normalize(dir0 * (_radiusBottom - _radiusTop) + axis * _height);
+			vec3 n1 = normalize(dir1 * (_radiusBottom - _radiusTop) + axis * _height);
+
+			vertices.push_back({ p0b, n0, vec2((float)i / slices, 0.0f) });
+			vertices.push_back({ p1b, n1, vec2((float)(i + 1) / slices, 0.0f) });
+			vertices.push_back({ p0t, n0, vec2((float)i / slices, 1.0f) });
+
+			vertices.push_back({ p0t, n0, vec2((float)i / slices, 1.0f) });
+			vertices.push_back({ p1b, n1, vec2((float)(i + 1) / slices, 0.0f) });
+			vertices.push_back({ p1t, n1, vec2((float)(i + 1) / slices, 1.0f) });
+		}
+
+		for (int i = 0; i < slices; ++i) {
+			float a0 = i * angleStep;
+			float a1 = (i + 1) % slices * angleStep;
+
+			vec3 p0 = _base + _radiusBottom * (cos(a0) * tangent + sin(a0) * bitangent);
+			vec3 p1 = _base + _radiusBottom * (cos(a1) * tangent + sin(a1) * bitangent);
+
+			vec3 normal = -axis;
+			vertices.push_back({ _base, normal, vec2(0.5f, 0.5f) });
+			vertices.push_back({ p1, normal, vec2(0.5f + 0.5f * cos(a1), 0.5f + 0.5f * sin(a1)) });
+			vertices.push_back({ p0, normal, vec2(0.5f + 0.5f * cos(a0), 0.5f + 0.5f * sin(a0)) });
+		}
+
+		for (int i = 0; i < slices; ++i) {
+			float a0 = i * angleStep;
+			float a1 = (i + 1) % slices * angleStep;
+
+			vec3 p0 = top + _radiusTop * (cos(a0) * tangent + sin(a0) * bitangent);
+			vec3 p1 = top + _radiusTop * (cos(a1) * tangent + sin(a1) * bitangent);
+
+			vec3 normal = axis;
+			vertices.push_back({ top, normal, vec2(0.5f, 0.5f) });
+			vertices.push_back({ p0, normal, vec2(0.5f + 0.5f * cos(a0), 0.5f + 0.5f * sin(a0)) });
+			vertices.push_back({ p1, normal, vec2(0.5f + 0.5f * cos(a1), 0.5f + 0.5f * sin(a1)) });
+		}
+
+		uploadVertexData(vertices);
+	}
+};
+
+
 struct Object {
 	Shader* shader;
 	Material* material;
@@ -568,6 +637,10 @@ public:
 		Object3d* magentaCone = new Cone(vec3(0.0f, 1.0f, 0.8f), vec3(0.2f, -1.0f, 0.0f), 2.0f, 0.2f);
 		Object* magentaConeObject = new Object(phongShader, magentaPlastic, magentaCone);
 		objects.push_back(magentaConeObject);
+
+		Object3d* frustum = new Frustum(vec3(0.0f, 1.0f, -0.8f), vec3(0.2f, -1.0f, 0.0f), 2.0f, 0.2f, 0.4f);
+		Object* frustumObject = new Object(phongShader, magentaPlastic, frustum);
+		objects.push_back(frustumObject);
 
 		// Camera
 		camera.wEye = vec3(0.0f, 1.0f, 4.0f);
@@ -681,7 +754,6 @@ public:
 	}
 
 	void onKeyboard(int key) override {
-		printf("Key pressed: %d\n", key);
 		if (key == 'q') {
 			if (paused) return;
 			scene.Spin();

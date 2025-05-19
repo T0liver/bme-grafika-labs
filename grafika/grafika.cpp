@@ -57,6 +57,15 @@ public:
 		wEye += vec3(ward.x * delta, 0.0f, ward.z * delta);
 		wLookat += vec3(ward.x * delta, 0.0f, ward.z * delta);
 	}
+
+	void LookAround(float yaw, float pitch) {
+		vec3 direction;
+		direction.x = cos(radians(yaw)) * cos(radians(pitch));
+		direction.y = sin(radians(pitch));
+		direction.z = sin(radians(yaw)) * cos(radians(pitch));
+		direction = normalize(direction);
+		wLookat = wEye + direction;
+	}
 };
 
 class Material {
@@ -640,10 +649,20 @@ public:
 	void Move(const int dir, float delta = 0.2f) {
 		camera.Move(dir, delta);
 	}
+
+	void LookAround(float yaw, float pitch) {
+		camera.LookAround(yaw, pitch);
+	}
 };
 
 class Kepszintezis : public glApp {
 	Scene scene;
+
+	float yaw = -90.0f;
+	float pitch = 0.0f;
+	float lastX = windowWidth / 2.0f;
+	float lastY = windowHeight / 2.0f;
+	bool firstMouse = true;
 public:
 	Kepszintezis() : glApp(3, 3, windowWidth, windowHeight, "Kepszintezis") {}
 
@@ -655,36 +674,71 @@ public:
 	}
 
 	void onDisplay() {
+		if (paused) return;
 		glClearColor(0.4f, 0.4f, 0.4f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		scene.Render();
 	}
 
 	void onKeyboard(int key) override {
+		printf("Key pressed: %d\n", key);
 		if (key == 'q') {
+			if (paused) return;
 			scene.Spin();
 			refreshScreen();
 		}
 		else if (key == 'w') {
+			if (paused) return;
 			scene.Move(1);
 			refreshScreen();
 		}
 		else if (key == 's') {
+			if (paused) return;
 			scene.Move(2);
 			refreshScreen();
 		}
 		else if (key == 'd') {
+			if (paused) return;
 			scene.Move(3);
 			refreshScreen();
 		}
 		else if (key == 'a') {
+			if (paused) return;
 			scene.Move(4);
 			refreshScreen();
 		}
-		else if (key == 27) {
-			exit(0);
+		else if (key == 'p') {
+			paused = !paused;
 		}
 	}
+
+	void onMouseMotion(int x, int y) override {
+		if (paused) return;
+
+		if (firstMouse) {
+			lastX = x;
+			lastY = y;
+			firstMouse = false;
+			return;
+		}
+
+		float sensitivity = 0.1f;
+		float offsetX = (x - lastX) * sensitivity;
+		float offsetY = (lastY - y) * sensitivity;
+
+		lastX = x;
+		lastY = y;
+
+		yaw += offsetX;
+		pitch += offsetY;
+
+		if (pitch > 89.0f) pitch = 89.0f;
+		if (pitch < -89.0f) pitch = -89.0f;
+
+		scene.LookAround(yaw, pitch);
+		refreshScreen();
+	}
+
 };
 
 Kepszintezis app;

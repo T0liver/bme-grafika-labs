@@ -99,6 +99,8 @@ int main(void) {
 	glfwSetCursorPosCallback(window, cursor_position_callback);
 	glfwSetWindowRefreshCallback(window, window_refresh_callback);
 
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
 	glfwMakeContextCurrent(window);
 	gladLoadGL();
 	glfwSwapInterval(1);
@@ -119,6 +121,11 @@ int main(void) {
 			pApp->onDisplay();       // rajzolás
 			glfwSwapBuffers(window); // buffercsere
 			screenRefresh = false;
+		}
+		if (pApp->getPaused()) {
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		} else {
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 		}
 	}
 	glfwDestroyWindow(window);

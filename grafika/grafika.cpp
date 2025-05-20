@@ -581,6 +581,24 @@ public:
 	*/
 };
 
+float sign(const vec3 p1, const vec3 p2, const vec3 p3) {
+	return (p1.x - p3.x) * (p2.z - p3.z) - (p2.x - p3.x) * (p1.z - p3.z);
+}
+
+bool isPointInTriangle(const vec3 p, const vec3 t1, const vec3 t2, const vec3 t3) {
+	float d1, d2, d3;
+	bool has_neg, has_pos;
+
+	d1 = sign(p, t1, t2);
+	d2 = sign(p, t2, t3);
+	d3 = sign(p, t3, t1);
+
+	has_neg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+	has_pos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+
+	return !(has_neg && has_pos);
+}
+
 class Scene {
 	std::vector<Object*> objects;
 	std::vector<vec3> trisP1, trisP2, trisP3;
@@ -591,6 +609,8 @@ class Scene {
 	vec3 camBase = vec3(0.0f, 40.0f, 1.0f);
 	vec3 carTarget = carBase;
 	Object* carObj;
+	std::vector<Object3d*> roadPlanes;
+	std::vector<Object*> roadObjects;
 public:
 	void Build() {
 		// Shaders
@@ -607,88 +627,130 @@ public:
 
 		// Create objects by setting up their vertex data on the GPU
 		Object3d* checkerPlane = new Plane(vec3(0.0f, -0.75f, 0.0f), vec2(7.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(checkerPlane);
 		Object* board = new Object(phongShader, boardMaterial, checkerPlane, boardTexture);
 		objects.push_back(board);
+		roadObjects.push_back(board);
 
 		Object3d* roadPlane1 = new Plane(vec3(50.0f, -1.0f, 0.0f), vec2(100.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane1);
 		Object* road1 = new Object(phongShader, roadMaterial, roadPlane1, asphaltTexture);
 		objects.push_back(road1);
+		roadObjects.push_back(road1);
 
 		Object3d* roadPlane2 = new Plane(vec3(100.0f, -1.0f, 5.0f), vec2(20.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane2);
 		Object* road2 = new Object(phongShader, roadMaterial, roadPlane2, asphaltTexture);
 		objects.push_back(road2);
+		roadObjects.push_back(road2);
 
 		Object3d* roadPlane3 = new Plane(vec3(110.0f, -1.0f, 21.5f), vec2(7.0f, 40.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane3);
 		Object* road3 = new Object(phongShader, roadMaterial, roadPlane3, asphaltTexture);
 		objects.push_back(road3);
+		roadObjects.push_back(road3);
 
 		Object3d* roadPlane4 = new Plane(vec3(105.0f, -1.0f, 50.5f), vec2(7.0f, 40.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane4);
 		Object* road4 = new Object(phongShader, roadMaterial, roadPlane4, asphaltTexture);
 		objects.push_back(road4);
+		roadObjects.push_back(road4);
 
 		Object3d* roadPlane5 = new Plane(vec3(88.5f, -1.0f, 70.0f), vec2(40.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane5);
 		Object* road5 = new Object(phongShader, roadMaterial, roadPlane5, asphaltTexture);
 		objects.push_back(road5);
+		roadObjects.push_back(road5);
 
 		Object3d* roadPlane6 = new Plane(vec3(65.0f, -1.0f, 65.0f), vec2(20.0f, 10.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane6);
 		Object* road6 = new Object(phongShader, roadMaterial, roadPlane6, asphaltTexture);
 		objects.push_back(road6);
+		roadObjects.push_back(road6);
 
 		Object3d* roadPlane7 = new Plane(vec3(55.0f, -1.0f, 60.0f), vec2(20.0f, 10.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane7);
 		Object* road7= new Object(phongShader, roadMaterial, roadPlane7, asphaltTexture);
 		objects.push_back(road7);
+		roadObjects.push_back(road7);
 
 		Object3d* roadPlane8 = new Plane(vec3(35.0f, -1.0f, 58.5f), vec2(40.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane8);
 		Object* road8 = new Object(phongShader, roadMaterial, roadPlane8, asphaltTexture);
 		objects.push_back(road8);
+		roadObjects.push_back(road8);
 
 		Object3d* roadPlane9 = new Plane(vec3(5.0f, -1.0f, 65.5f), vec2(40.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane9);
 		Object* road9 = new Object(phongShader, roadMaterial, roadPlane9, asphaltTexture);
 		objects.push_back(road9);
+		roadObjects.push_back(road9);
 
 		Object3d* roadPlane10 = new Plane(vec3(-20.0f, -1.0f, 72.5f), vec2(30.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane10);
 		Object* road10 = new Object(phongShader, roadMaterial, roadPlane10, asphaltTexture);
 		objects.push_back(road10);
+		roadObjects.push_back(road10);
 
 		Object3d* roadPlane11 = new Plane(vec3(-20.0f, -1.0f, 72.5f), vec2(30.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane11);
 		Object* road11 = new Object(phongShader, roadMaterial, roadPlane11, asphaltTexture);
 		objects.push_back(road11);
+		roadObjects.push_back(road11);
 
 		Object3d* roadPlane12 = new Plane(vec3(-33.0f, -1.0f, 65.0f), vec2(7.0f, 20.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane12);
 		Object* road12 = new Object(phongShader, roadMaterial, roadPlane12, asphaltTexture);
 		objects.push_back(road12);
+		roadObjects.push_back(road12);
 
 		Object3d* roadPlane13 = new Plane(vec3(-60.0f, -1.0f, 55.0f), vec2(60.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane13);
 		Object* road13 = new Object(phongShader, roadMaterial, roadPlane13, asphaltTexture);
 		objects.push_back(road13);
+		roadObjects.push_back(road13);
 
 		Object3d* roadPlane14 = new Plane(vec3(-97.0f, -1.0f, 50.0f), vec2(30.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane14);
 		Object* road14 = new Object(phongShader, roadMaterial, roadPlane14, asphaltTexture);
 		objects.push_back(road14);
+		roadObjects.push_back(road14);
 
 		Object3d* roadPlane15 = new Plane(vec3(-110.0f, -1.0f, 55.0f), vec2(20.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane15);
 		Object* road15 = new Object(phongShader, roadMaterial, roadPlane15, asphaltTexture);
 		objects.push_back(road15);
+		roadObjects.push_back(road15);
 
 		Object3d* roadPlane16 = new Plane(vec3(-120.0f, -1.0f, 60.0f), vec2(20.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane16);
 		Object* road16 = new Object(phongShader, roadMaterial, roadPlane16, asphaltTexture);
 		objects.push_back(road16);
+		roadObjects.push_back(road16);
 
 		Object3d* roadPlane17 = new Plane(vec3(-130.0f, -1.0f, 40.0f), vec2(7.0f, 40.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane17);
 		Object* road17 = new Object(phongShader, roadMaterial, roadPlane17, asphaltTexture);
 		objects.push_back(road17);
+		roadObjects.push_back(road17);
 
 		Object3d* roadPlane18 = new Plane(vec3(-135.0f, -1.0f, 10.0f), vec2(7.0f, 40.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane18);
 		Object* road18 = new Object(phongShader, roadMaterial, roadPlane18, asphaltTexture);
 		objects.push_back(road18);
+		roadObjects.push_back(road18);
 
 		Object3d* roadPlane19 = new Plane(vec3(-125.0f, -1.0f, -7.0f), vec2(20.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane19);
 		Object* road19 = new Object(phongShader, roadMaterial, roadPlane19, asphaltTexture);
 		objects.push_back(road19);
+		roadObjects.push_back(road19);
 
 		Object3d* roadPlane20 = new Plane(vec3(-62.0f, -1.0f, 0.0f), vec2(125.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		roadPlanes.push_back(roadPlane20);
 		Object* road20 = new Object(phongShader, roadMaterial, roadPlane20, asphaltTexture);
 		objects.push_back(road20);
+		roadObjects.push_back(road20);
 
 		Object3d* car = new Cylinder(carBase, vec3(0.0f, 0.0f, 1.0f), 0.5f, 2.0f);
 		carObj = new Object(phongShader, yellowPlastic, car);
@@ -794,6 +856,11 @@ public:
 	void MoveCar(const vec3& dir) {
 		if (!carObj) return;
 
+		if (!isCarOnRoad()) {
+			//carBase = vec3(0.0f, 0.0f, 0.0f);
+			return;
+		}
+
 		if (length(dir) > 1e-4) {
 			vec3 normDir = normalize(dir);
 			vec3 forward = vec3(0.0f, 0.0f, 1.0f);
@@ -819,6 +886,22 @@ public:
 
 	void setTarget(const vec3& _target) {
 		carTarget = _target;
+	}
+	
+	bool isCarOnRoad() {
+		for (Object* roadObj : roadObjects) {
+			const std::vector<VertexData>& verts = roadObj->geoObj->getVertices();
+			for (int i = 0; i + 2 < verts.size(); i += 3) {
+				vec3 t1 = roadObj->transformPoint(verts[i].position);
+				vec3 t2 = roadObj->transformPoint(verts[i + 1].position);
+				vec3 t3 = roadObj->transformPoint(verts[i + 2].position);
+				if (isPointInTriangle(carBase, t1, t2, t3)) {
+					return true;
+				}
+			}
+		}
+		return false;
+
 	}
 
 };

@@ -469,8 +469,10 @@ public:
 		vec3 axis = normalize(_axisDir);
 		vec3 top = _base + axis * _height;
 
-		vec3 tangent = normalize(cross(axis, vec3(0.0f, 0.0f, 1.0f)));
-		if (length(tangent) < 1e-6f) tangent = normalize(cross(axis, vec3(0.0f, 1.0f, 0.0f)));
+		vec3 up = vec3(0.0f, 0.0f, 1.0f);
+		if (abs(dot(axis, up)) > 0.999f)
+			up = vec3(0.0f, 1.0f, 0.0f);
+		vec3 tangent = normalize(cross(up, axis));
 		vec3 bitangent = normalize(cross(axis, tangent));
 
 		const int slices = 6;
@@ -593,6 +595,8 @@ bool isPointInTriangle(const vec3 p, const vec3 t1, const vec3 t2, const vec3 t3
 	return !(has_neg && has_pos);
 }
 
+const vec3 defCamBase = vec3(0.0f, 40.0f, 1.0f);
+
 class Scene {
 	std::vector<Object*> objects;
 	std::vector<vec3> trisP1, trisP2, trisP3;
@@ -600,15 +604,16 @@ class Scene {
 	Camera camera;
 
 	vec3 carBase = vec3(0.0f, 0.0f, 0.0f);
-	vec3 camBase = vec3(0.0f, 40.0f, 1.0f);
+	vec3 camBase = defCamBase;
 	vec3 carTarget = carBase;
-	vec3 carAxis = vec3(1.0f, 0.0f, 0.0f);
+	vec3 carAxis = vec3(0.0f, 0.0f, -1.0f);
 	Object* carObj;
 	std::vector<Object3d*> roadPlanes;
 	std::vector<Object*> roadObjects;
 	std::vector<Object*> carObjects;
 public:
 	bool Start = false;
+	bool Out = false;
 
 	void Build() {
 		// Shaders
@@ -759,32 +764,32 @@ public:
 		objects.push_back(carObj);
 		carObjects.push_back(carObj);
 
-		Object3d* carBodyObj2 = new Frustum(carBase + vec3(-1.0f, 0.0f, 0.0f), carAxis, 1.0f, 0.2f, 0.5f);
+		Object3d* carBodyObj2 = new Frustum(carBase + vec3(0.0f, 0.0f, 1.0f), carAxis, 1.0f, 0.2f, 0.5f);
 		Object* carBody2 = new Object(phongShader, carBodyMat, carBodyObj2);
 		objects.push_back(carBody2);
 		carObjects.push_back(carBody2);
 
-		Object3d* carBodyObj3 = new Cylinder(carBase + vec3(0.3f, 0.4f, 0.0f), carAxis, 0.4f, 1.5f);
+		Object3d* carBodyObj3 = new Cylinder(carBase + vec3(0.0f, 0.4f, -0.3f), carAxis, 0.4f, 1.5f);
 		Object* carBody3 = new Object(phongShader, carPitMat, carBodyObj3);
 		objects.push_back(carBody3);
 		carObjects.push_back(carBody3);
 
-		Object3d* wheel1Obj = new Cylinder(carBase + vec3(1.5f, -0.4f, 0.25f), carAxis + vec3(-1.0f, 0.0f, 1.0f), 0.4f, 0.3f);
+		Object3d* wheel1Obj = new Cylinder(carBase + vec3(0.65f, -0.4f, -1.5f), carAxis + vec3(-1.0f, 0.0f, 1.0f), 0.4f, 0.3f);
 		Object* wheel1 = new Object(phongShader, blackRubber, wheel1Obj);
 		objects.push_back(wheel1);
 		carObjects.push_back(wheel1);
 
-		Object3d* wheel2Obj = new Cylinder(carBase + vec3(0.5f, -0.4f, 0.25f), carAxis + vec3(-1.0f, 0.0f, 1.0f), 0.4f, 0.3f);
+		Object3d* wheel2Obj = new Cylinder(carBase + vec3(0.65f, -0.4f, -0.5f), carAxis + vec3(-1.0f, 0.0f, 1.0f), 0.4f, 0.3f);
 		Object* wheel2 = new Object(phongShader, blackRubber, wheel2Obj);
 		objects.push_back(wheel2);
 		carObjects.push_back(wheel2);
 
-		Object3d* wheel3Obj = new Cylinder(carBase + vec3(1.5f, -0.4f, -0.55f), carAxis + vec3(-1.0f, 0.0f, 1.0f), 0.4f, 0.3f);
+		Object3d* wheel3Obj = new Cylinder(carBase + vec3(-0.35f, -0.4f, -1.5f), carAxis + vec3(-1.0f, 0.0f, 1.0f), 0.4f, 0.3f);
 		Object* wheel3 = new Object(phongShader, blackRubber, wheel3Obj);
 		objects.push_back(wheel3);
 		carObjects.push_back(wheel3);
 
-		Object3d* wheel4Obj = new Cylinder(carBase + vec3(0.5f, -0.4f, -0.55f), carAxis + vec3(-1.0f, 0.0f, 1.0f), 0.4f, 0.3f);
+		Object3d* wheel4Obj = new Cylinder(carBase + vec3(-0.35f, -0.4f, -0.5f), carAxis + vec3(-1.0f, 0.0f, 1.0f), 0.4f, 0.3f);
 		Object* wheel4 = new Object(phongShader, blackRubber, wheel4Obj);
 		objects.push_back(wheel4);
 		carObjects.push_back(wheel4);
@@ -814,6 +819,8 @@ public:
 		state.P = camera.P();
 		state.lights = lights;
 		for (Object* obj : objects) obj->Draw(state);
+
+		if (Out) return;
 
 		vec3 carPos = getCarPosition();
 		vec3 dir = carTarget - carPos;
@@ -886,7 +893,7 @@ public:
 		if (!Start) return;
 
 		if (!isCarOnRoad()) {
-			//carBase = vec3(0.0f, 0.0f, 0.0f);
+			Out = true;
 			return;
 		}
 
@@ -895,12 +902,13 @@ public:
 
 		if (length(dir) > 1e-4) {
 			vec3 normDir = normalize(dir);
-			vec3 forward = vec3(-1.0f, 0.0f, 0.0f);
+			vec3 forward = vec3(0.0f, 0.0f, 1.0f);
 			angle = acos(dot(forward, normDir));
 			axis = cross(forward, normDir);
 			if (length(axis) < 1e-4) axis = vec3(0.0f, 1.0f, 0.0f);
 		}
 		carBase = carBase + dir;
+		carBase *= vec3(1.0f, 0.0f, 1.0f);
 
 		for (Object* obj : carObjects) {
 			obj->translation = carBase;
@@ -938,6 +946,25 @@ public:
 		return false;
 	}
 
+	void ResetCar() {
+
+		carBase = vec3(0.0f, 0.0f, 0.0f);
+		carTarget = carBase;
+		carAxis = vec3(1.0f, 0.0f, 0.0f);
+
+		for (Object* obj : carObjects) {
+			obj->translation = carBase;
+			obj->rotationAxis = carAxis;
+			obj->rotationAngle = 0.0f;
+		}
+
+		camBase = defCamBase;
+		camera.wEye = camBase;
+		camera.wLookat = carBase;
+		lights[1].wLightPos = vec4(camBase.x, camBase.y, camBase.z, 1.0f);
+
+		Out = false;
+	}
 };
 
 class Kepszintezis : public glApp {
@@ -962,6 +989,11 @@ public:
 		printf("Key pressed: %c\n", key);
 		if (key == 'p') {
 			scene.Start = !scene.Start;
+			refreshScreen();
+		}
+		else if (key == 'r') {
+			scene.ResetCar();
+			scene.Render();
 			refreshScreen();
 		}
 	}

@@ -81,6 +81,30 @@ public:
 	}
 };
 
+class AsphaltTexture : public Texture {
+public:
+	AsphaltTexture(const int _width, const int _height) : Texture(_width, _height)
+	{
+		std::vector<vec3> img(_width * _height);
+		vec3 asphaltColor(0.2f, 0.2f, 0.2f);
+		vec3 lineColor(1.0f, 1.0f, 0.0f);
+
+		int lineWidth = _width / 20;
+		int centerX = _width / 2;
+
+		for (int y = 0; y < _height; ++y) {
+			for (int x = 0; x < _width; ++x) {
+				bool isLine = abs(x - centerX) < lineWidth / 2 && (y / 20) % 2 == 0;
+				img[y * _width + x] = isLine ? lineColor : asphaltColor;
+			}
+		}
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, _width, _height, 0, GL_RGB, GL_FLOAT, &img[0]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	}
+};
+
 struct RenderState {
 	mat4 MVP, M, Minv, V, P;
 	Material* material;
@@ -578,20 +602,93 @@ public:
 		Material* roadMaterial = new Material(vec3(0.2f, 0.2f, 0.2f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f), 5.0f);
 
 		// Textures
-		Texture* boardTexture = new CheckerTexture(20, 20);
+		Texture* boardTexture = new CheckerTexture(3, 3, vec3(0.0f, 0.0f, 0.0f), vec3(0.9f, 0.9f, 0.9f));
+		Texture* asphaltTexture = new AsphaltTexture(3, 3);
 
 		// Create objects by setting up their vertex data on the GPU
-		Object3d* checkerPlane = new Plane(vec3(0.0f, -0.75f, 0.0f), vec2(20.0f, 20.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object3d* checkerPlane = new Plane(vec3(0.0f, -0.75f, 0.0f), vec2(7.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
 		Object* board = new Object(phongShader, boardMaterial, checkerPlane, boardTexture);
 		objects.push_back(board);
 
 		Object3d* roadPlane1 = new Plane(vec3(50.0f, -1.0f, 0.0f), vec2(100.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
-		Object* road1 = new Object(phongShader, roadMaterial, roadPlane1);
+		Object* road1 = new Object(phongShader, roadMaterial, roadPlane1, asphaltTexture);
 		objects.push_back(road1);
 
 		Object3d* roadPlane2 = new Plane(vec3(100.0f, -1.0f, 5.0f), vec2(20.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
-		Object* road2 = new Object(phongShader, roadMaterial, roadPlane2);
+		Object* road2 = new Object(phongShader, roadMaterial, roadPlane2, asphaltTexture);
 		objects.push_back(road2);
+
+		Object3d* roadPlane3 = new Plane(vec3(110.0f, -1.0f, 21.5f), vec2(7.0f, 40.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road3 = new Object(phongShader, roadMaterial, roadPlane3, asphaltTexture);
+		objects.push_back(road3);
+
+		Object3d* roadPlane4 = new Plane(vec3(105.0f, -1.0f, 50.5f), vec2(7.0f, 40.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road4 = new Object(phongShader, roadMaterial, roadPlane4, asphaltTexture);
+		objects.push_back(road4);
+
+		Object3d* roadPlane5 = new Plane(vec3(88.5f, -1.0f, 70.0f), vec2(40.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road5 = new Object(phongShader, roadMaterial, roadPlane5, asphaltTexture);
+		objects.push_back(road5);
+
+		Object3d* roadPlane6 = new Plane(vec3(65.0f, -1.0f, 65.0f), vec2(20.0f, 10.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road6 = new Object(phongShader, roadMaterial, roadPlane6, asphaltTexture);
+		objects.push_back(road6);
+
+		Object3d* roadPlane7 = new Plane(vec3(55.0f, -1.0f, 60.0f), vec2(20.0f, 10.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road7= new Object(phongShader, roadMaterial, roadPlane7, asphaltTexture);
+		objects.push_back(road7);
+
+		Object3d* roadPlane8 = new Plane(vec3(35.0f, -1.0f, 58.5f), vec2(40.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road8 = new Object(phongShader, roadMaterial, roadPlane8, asphaltTexture);
+		objects.push_back(road8);
+
+		Object3d* roadPlane9 = new Plane(vec3(5.0f, -1.0f, 65.5f), vec2(40.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road9 = new Object(phongShader, roadMaterial, roadPlane9, asphaltTexture);
+		objects.push_back(road9);
+
+		Object3d* roadPlane10 = new Plane(vec3(-20.0f, -1.0f, 72.5f), vec2(30.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road10 = new Object(phongShader, roadMaterial, roadPlane10, asphaltTexture);
+		objects.push_back(road10);
+
+		Object3d* roadPlane11 = new Plane(vec3(-20.0f, -1.0f, 72.5f), vec2(30.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road11 = new Object(phongShader, roadMaterial, roadPlane11, asphaltTexture);
+		objects.push_back(road11);
+
+		Object3d* roadPlane12 = new Plane(vec3(-33.0f, -1.0f, 65.0f), vec2(7.0f, 20.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road12 = new Object(phongShader, roadMaterial, roadPlane12, asphaltTexture);
+		objects.push_back(road12);
+
+		Object3d* roadPlane13 = new Plane(vec3(-60.0f, -1.0f, 55.0f), vec2(60.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road13 = new Object(phongShader, roadMaterial, roadPlane13, asphaltTexture);
+		objects.push_back(road13);
+
+		Object3d* roadPlane14 = new Plane(vec3(-97.0f, -1.0f, 50.0f), vec2(30.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road14 = new Object(phongShader, roadMaterial, roadPlane14, asphaltTexture);
+		objects.push_back(road14);
+
+		Object3d* roadPlane15 = new Plane(vec3(-110.0f, -1.0f, 55.0f), vec2(20.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road15 = new Object(phongShader, roadMaterial, roadPlane15, asphaltTexture);
+		objects.push_back(road15);
+
+		Object3d* roadPlane16 = new Plane(vec3(-120.0f, -1.0f, 60.0f), vec2(20.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road16 = new Object(phongShader, roadMaterial, roadPlane16, asphaltTexture);
+		objects.push_back(road16);
+
+		Object3d* roadPlane17 = new Plane(vec3(-130.0f, -1.0f, 40.0f), vec2(7.0f, 40.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road17 = new Object(phongShader, roadMaterial, roadPlane17, asphaltTexture);
+		objects.push_back(road17);
+
+		Object3d* roadPlane18 = new Plane(vec3(-135.0f, -1.0f, 10.0f), vec2(7.0f, 40.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road18 = new Object(phongShader, roadMaterial, roadPlane18, asphaltTexture);
+		objects.push_back(road18);
+
+		Object3d* roadPlane19 = new Plane(vec3(-125.0f, -1.0f, -7.0f), vec2(20.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road19 = new Object(phongShader, roadMaterial, roadPlane19, asphaltTexture);
+		objects.push_back(road19);
+
+		Object3d* roadPlane20 = new Plane(vec3(-62.0f, -1.0f, 0.0f), vec2(125.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road20 = new Object(phongShader, roadMaterial, roadPlane20, asphaltTexture);
+		objects.push_back(road20);
 
 		Object3d* car = new Cylinder(carBase, vec3(0.0f, 0.0f, 1.0f), 0.5f, 2.0f);
 		carObj = new Object(phongShader, yellowPlastic, car);
@@ -739,7 +836,7 @@ public:
 	}
 
 	void onDisplay() {
-		glClearColor(0.4f, 0.4f, 0.4f, 1.0f);
+		glClearColor(0.0f, 0.65f, 0.098f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		scene.Render();
 	}

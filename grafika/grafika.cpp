@@ -1,5 +1,7 @@
 #include "framework.h"
 
+#define DEBUG true
+
 const int windowWidth = 1200, windowHeight = 600;
 
 struct Camera {
@@ -673,6 +675,7 @@ public:
 	bool Out = false;
 
 	void Build() {
+		if (DEBUG) printf("Creating scene...\n");
 		// Shaders
 		Shader* phongShader = new PhongShader();
 
@@ -850,6 +853,8 @@ public:
 		lights[1].La = vec3(0.2f, 0.2f, 0.2f);
 		lights[1].Le = vec3(1.0f, 1.0f, 1.0f);
 
+		if (DEBUG) printf("All set up!\n");
+
 		// Upload the objects (and triangles) to the GPU
 		UploadToGPU();
 	}
@@ -935,7 +940,7 @@ public:
 
 		if (!isCarOnRoad()) {
 			Out = true;
-			printf("Car is out of the road!\n");
+			if (DEBUG) printf("Car is out of the road:\t%f, %f, %f\n", carBase.x, carBase.y, carBase.z);
 			return;
 		}
 
@@ -1020,15 +1025,17 @@ public:
 
 		Out = false;
 
-		printf("Car is resetted!\n");
+		if (DEBUG) printf("Car is resetted!\n");
 	}
 
 	void speedUp() {
 		if (speed < 0.5f) speed += 0.01f;
+		if (DEBUG) printf("Speed up! Actual speed: %f\n", speed);
 	}
 
 	void slowDown() {
 		if (speed > 0.0f) speed -= 0.01f;
+		if (DEBUG) printf("Slow donw! Actual speed: %f\n", speed);
 	}
 };
 
@@ -1051,7 +1058,7 @@ public:
 	}
 
 	void onKeyboard(int key) override {
-		printf("Key pressed: %c\n", key);
+		if (DEBUG) printf("Key pressed: %c\n", key);
 		if (key == 'p') {
 			scene.Start = !scene.Start;
 			refreshScreen();

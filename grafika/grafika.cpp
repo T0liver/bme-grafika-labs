@@ -683,6 +683,7 @@ class Scene {
 	std::vector<Object3d*> roadPlanes;
 	std::vector<Object*> roadObjects;
 	std::vector<Object*> carObjects;
+	float speed = 0.0f;
 public:
 	bool Start = false;
 	bool Out = false;
@@ -866,6 +867,12 @@ public:
 		objects.push_back(wheel4);
 		carObjects.push_back(wheel4);
 
+		for (Object* obj : carObjects) {
+			obj->translation = carBase;
+			obj->rotationAxis = vec3(0.0f, 1.0f, 0.0f);
+			obj->rotationAngle = M_PI_2;
+		}
+
 		// Camera
 		camera.wEye = camBase;
 		camera.wLookat = carBase;
@@ -898,7 +905,7 @@ public:
 		vec3 dir = carTarget - carPos;
 
 		if (length(dir) > 1e-4) {
-			float speed = 0.2f;
+			float speed = 0.1f;
 			if (length(dir) > speed)
 				dir = normalize(dir) * speed;
 			carTarget += dir;

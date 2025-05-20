@@ -339,7 +339,6 @@ bool pollKey(int key);
 class glApp {
 //---------------------------
 public:
-	bool paused = false;
 
 	glApp(const char * caption);
 	glApp(unsigned int major, unsigned int minor,        // Kért OpenGL major.minor verzió
@@ -358,6 +357,5 @@ public:
 	virtual void onMouseMotion(int pX, int pY) {}
 	// Telik az idõ
 	virtual void onTimeElapsed(float startTime, float endTime) {}
-	bool getPaused() { return paused; }
 };
 

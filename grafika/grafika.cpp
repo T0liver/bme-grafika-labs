@@ -1,6 +1,5 @@
 #include "framework.h"
 
-const int tessellationLevel = 20;
 const int windowWidth = 1200, windowHeight = 600;
 
 struct Camera {
@@ -29,42 +28,6 @@ public:
 			d.y,
 			-d.x * sin(angle) + d.z * cos(angle)
 		) + wLookat;
-	}
-
-	void Move(const int dir, float delta) {
-		vec3 ward;
-		switch (dir)
-		{
-		// forward
-		case 1:
-			ward = normalize(wLookat - wEye);
-			break;
-		// backward
-		case 2:
-			ward = normalize(wEye - wLookat);
-			break;
-		// right
-		case 3:
-			ward = normalize(cross(normalize(wLookat - wEye), wVup));
-			break;
-		// left
-		case 4:
-			ward = normalize(cross(wVup, normalize(wLookat - wEye)));
-			break;
-		default:
-			return;
-		}
-		wEye += vec3(ward.x * delta, 0.0f, ward.z * delta);
-		wLookat += vec3(ward.x * delta, 0.0f, ward.z * delta);
-	}
-
-	void LookAround(float yaw, float pitch) {
-		vec3 direction;
-		direction.x = cos(radians(yaw)) * cos(radians(pitch));
-		direction.y = sin(radians(pitch));
-		direction.z = sin(radians(yaw)) * cos(radians(pitch));
-		direction = normalize(direction);
-		wLookat = wEye + direction;
 	}
 };
 
@@ -599,6 +562,10 @@ class Scene {
 	std::vector<vec3> trisP1, trisP2, trisP3;
 	std::vector<Light> lights;
 	Camera camera;
+
+	vec3 carBase = vec3(0.0f, 0.0f, 0.0f);
+	vec3 camBase = vec3(0.0f, 10.0f, 1.0f);
+	Object* carObj;
 public:
 	void Build() {
 		// Shaders
@@ -620,17 +587,38 @@ public:
 		Object* board = new Object(phongShader, boardMaterial, checkerPlane, boardTexture);
 		objects.push_back(board);
 
+		Object3d* car = new Cylinder(carBase, vec3(0.0f, 0.0f, 1.0f), 0.5f, 2.0f);
+		carObj = new Object(phongShader, yellowPlastic, car);
+		objects.push_back(carObj);
+
 		// Camera
-		camera.wEye = vec3(0.0f, 1.0f, 4.0f);
-		camera.wLookat = vec3(0.0f, 0.0f, 0.0f);
+		camera.wEye = camBase;
+		camera.wLookat = carBase;
 		camera.wVup = vec3(0.0f, 1.0f, 0.0f);
 
 		// Lights
-		lights.resize(1);
+		lights.resize(2);
 		lights[0].wLightPos = vec4(1.0f, 1.0f, 1.0f, 0.0f);
-		lights[0].La = vec3(0.4f, 0.4f, 0.4f);
-		lights[0].Le = vec3(2.0f, 2.0f, 2.0f);
+		lights[0].La = vec3(0.2f, 0.2f, 0.2f);
+		lights[0].Le = vec3(1.0f, 1.0f, 1.0f);
+		lights[1].wLightPos = vec4(camBase.x, camBase.y, camBase.z, 1.0f);
+		lights[1].La = vec3(0.2f, 0.2f, 0.2f);
+		lights[1].Le = vec3(1.0f, 1.0f, 1.0f);
 
+		// Upload the objects (and triangles) to the GPU
+		UploadToGPU();
+	}
+
+	void Render() {
+		RenderState state;
+		state.wEye = camera.wEye;
+		state.V = camera.V();
+		state.P = camera.P();
+		state.lights = lights;
+		for (Object* obj : objects) obj->Draw(state);
+	}
+
+	void UploadToGPU() {
 		// Upload the objects (and triangles) to the GPU
 		trisP1.clear();
 		trisP2.clear();
@@ -678,15 +666,6 @@ public:
 		glUniform3fv(loc2, trisP3.size(), trisP3flat.data());
 	}
 
-	void Render() {
-		RenderState state;
-		state.wEye = camera.wEye;
-		state.V = camera.V();
-		state.P = camera.P();
-		state.lights = lights;
-		for (Object* obj : objects) obj->Draw(state);
-	}
-
 	/** deprecated
 	void Animate(float tstart, float tend) {
 		for (Object3d* obj : objects) obj->Animate(tstart, tend);
@@ -697,23 +676,35 @@ public:
 		camera.Spin(angle);
 	}
 
-	void Move(const int dir, float delta = 0.2f) {
-		camera.Move(dir, delta);
+	void MoveCar(const vec3& dir) {
+		if (!carObj) return;
+
+		if (length(dir) > 1e-4) {
+			vec3 normDir = normalize(dir);
+			vec3 forward = vec3(0.0f, 0.0f, 1.0f);
+			float angle = acos(dot(forward, normDir));
+			vec3 axis = cross(forward, normDir);
+			if (length(axis) < 1e-4) axis = vec3(0.0f, 1.0f, 0.0f);
+			carObj->rotationAxis = axis;
+			carObj->rotationAngle = angle;
+		}
+
+		carObj->translation = carObj->translation + dir;
+		carBase = carObj->translation;
+		camera.wLookat = carBase;
+		camera.wEye = carBase + camBase;
+		lights[1].wLightPos = vec4(camBase.x, camBase.y, camBase.z, 1.0f);
+
+		UploadToGPU();
 	}
 
-	void LookAround(float yaw, float pitch) {
-		camera.LookAround(yaw, pitch);
-	}
+	mat4 getCameraViewMatrix() { return camera.V(); }
+	mat4 getCameraProjMatrix() { return camera.P(); }
+	vec3 getCarPosition() { return carBase; }
 };
 
 class Kepszintezis : public glApp {
 	Scene scene;
-
-	float yaw = -90.0f;
-	float pitch = 0.0f;
-	float lastX = windowWidth / 2.0f;
-	float lastY = windowHeight / 2.0f;
-	bool firstMouse = true;
 public:
 	Kepszintezis() : glApp(3, 3, windowWidth, windowHeight, "Kepszintezis") {}
 
@@ -725,67 +716,46 @@ public:
 	}
 
 	void onDisplay() {
-		if (paused) return;
 		glClearColor(0.4f, 0.4f, 0.4f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		scene.Render();
 	}
 
 	void onKeyboard(int key) override {
-		if (key == 'q') {
-			if (paused) return;
-			scene.Spin();
-			refreshScreen();
-		}
-		else if (key == 'w') {
-			if (paused) return;
-			scene.Move(1);
-			refreshScreen();
-		}
-		else if (key == 's') {
-			if (paused) return;
-			scene.Move(2);
-			refreshScreen();
-		}
-		else if (key == 'd') {
-			if (paused) return;
-			scene.Move(3);
-			refreshScreen();
-		}
-		else if (key == 'a') {
-			if (paused) return;
-			scene.Move(4);
-			refreshScreen();
-		}
-		else if (key == 'p') {
-			paused = !paused;
-		}
+		printf("Key pressed: %c\n", key);
 	}
 
-	void onMouseMotion(int x, int y) override {
-		if (paused) return;
+	void onMouseMotion(int pX, int pY) override {
+		float ndcX = 2.0f * pX / windowWidth - 1.0f;
+		float ndcY = 1.0f - 2.0f * pY / windowHeight;
 
-		if (firstMouse) {
-			lastX = x;
-			lastY = y;
-			firstMouse = false;
-			return;
-		}
+		mat4 view = scene.getCameraViewMatrix();
+		mat4 proj = scene.getCameraProjMatrix();
+		mat4 invVP = inverse(proj * view);
 
-		float sensitivity = 0.1f;
-		float offsetX = (x - lastX) * sensitivity;
-		float offsetY = (lastY - y) * sensitivity;
+		vec4 rayStartNDC(ndcX, ndcY, -1.0f, 1.0f);
+		vec4 rayEndNDC(ndcX, ndcY, 1.0f, 1.0f);
+		vec4 rayStartWorld = invVP * rayStartNDC;
+		vec4 rayEndWorld = invVP * rayEndNDC;
+		rayStartWorld /= rayStartWorld.w;
+		rayEndWorld /= rayEndWorld.w;
 
-		lastX = x;
-		lastY = y;
+		vec3 rayDir = normalize(vec3(rayEndWorld - rayStartWorld));
+		vec3 rayOrigin = vec3(rayStartWorld);
 
-		yaw += offsetX;
-		pitch += offsetY;
+		float t = (-0.75f - rayOrigin.y) / rayDir.y;
+		if (t <= 0) return;
 
-		if (pitch > 89.0f) pitch = 89.0f;
-		if (pitch < -89.0f) pitch = -89.0f;
+		vec3 hitPoint = rayOrigin + t * rayDir;
 
-		scene.LookAround(yaw, pitch);
+		vec3 carPos = scene.getCarPosition();
+		vec3 dir = hitPoint - carPos;
+
+		float speed = 0.1f;
+		if (length(dir) > speed)
+			dir = normalize(dir) * speed;
+
+		scene.MoveCar(dir);
 		refreshScreen();
 	}
 

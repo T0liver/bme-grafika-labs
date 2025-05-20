@@ -11,7 +11,7 @@ public:
 		fov = 45.0f * (float)M_PI / 180.0f;
 		fp = 1; bp = 50;
 	}
-	
+
 	mat4 V() {
 		return lookAt(wEye, wLookat, wVup);
 	}
@@ -336,7 +336,7 @@ class Plane : public Object3d {
 public:
 	Plane(const vec3 _center, const vec2 _size, const vec3 _normal) {
 		std::vector<VertexData> verticles;
-		
+
 		vec3 tangent = normalize(cross(_normal, vec3(0.0f, 0.0f, 1.0f)));
 		if (length(tangent) < 1e-6f) tangent = normalize(cross(_normal, vec3(0.0f, 1.0f, 0.0f)));
 		vec3 bitangent = normalize(cross(_normal, tangent));
@@ -602,11 +602,14 @@ class Scene {
 	vec3 carBase = vec3(0.0f, 0.0f, 0.0f);
 	vec3 camBase = vec3(0.0f, 40.0f, 1.0f);
 	vec3 carTarget = carBase;
+	vec3 carAxis = vec3(1.0f, 0.0f, 0.0f);
 	Object* carObj;
 	std::vector<Object3d*> roadPlanes;
 	std::vector<Object*> roadObjects;
 	std::vector<Object*> carObjects;
 public:
+	bool Start = false;
+
 	void Build() {
 		// Shaders
 		Shader* phongShader = new PhongShader();
@@ -665,7 +668,7 @@ public:
 
 		Object3d* roadPlane7 = new Plane(vec3(55.0f, -1.0f, 60.0f), vec2(20.0f, 10.0f), vec3(0.0f, 1.0f, 0.0f));
 		roadPlanes.push_back(roadPlane7);
-		Object* road7= new Object(phongShader, roadMaterial, roadPlane7, asphaltTexture);
+		Object* road7 = new Object(phongShader, roadMaterial, roadPlane7, asphaltTexture);
 		objects.push_back(road7);
 		roadObjects.push_back(road7);
 
@@ -747,10 +750,44 @@ public:
 		objects.push_back(road20);
 		roadObjects.push_back(road20);
 
-		Object3d* car = new Cylinder(carBase, vec3(0.0f, 0.0f, 1.0f), 0.5f, 2.0f);
-		carObj = new Object(phongShader, yellowPlastic, car);
+		Material* blackRubber = new Material(vec3(0.02f), vec3(0.5f), vec3(0.1f), 10.0f);
+		Material* carBodyMat = new Material(vec3(0.1f, 0.0f, 0.0f), vec3(1.0f), vec3(0.8f, 0.0f, 0.0f), 100.0f);
+		Material* carPitMat = new Material(vec3(0.4f, 0.4f, 1.2f), vec3(0.8f), vec3(0.5f, 0.5f, 0.9f), 120.0f);
+
+		Object3d* carBodyObj = new Cylinder(carBase, carAxis, 0.5f, 2.0f);
+		carObj = new Object(phongShader, carBodyMat, carBodyObj);
 		objects.push_back(carObj);
 		carObjects.push_back(carObj);
+
+		Object3d* carBodyObj2 = new Frustum(carBase + vec3(-1.0f, 0.0f, 0.0f), carAxis, 1.0f, 0.2f, 0.5f);
+		Object* carBody2 = new Object(phongShader, carBodyMat, carBodyObj2);
+		objects.push_back(carBody2);
+		carObjects.push_back(carBody2);
+
+		Object3d* carBodyObj3 = new Cylinder(carBase + vec3(0.3f, 0.4f, 0.0f), carAxis, 0.4f, 1.5f);
+		Object* carBody3 = new Object(phongShader, carPitMat, carBodyObj3);
+		objects.push_back(carBody3);
+		carObjects.push_back(carBody3);
+
+		Object3d* wheel1Obj = new Cylinder(carBase + vec3(1.5f, -0.4f, 0.25f), carAxis + vec3(-1.0f, 0.0f, 1.0f), 0.4f, 0.3f);
+		Object* wheel1 = new Object(phongShader, blackRubber, wheel1Obj);
+		objects.push_back(wheel1);
+		carObjects.push_back(wheel1);
+
+		Object3d* wheel2Obj = new Cylinder(carBase + vec3(0.5f, -0.4f, 0.25f), carAxis + vec3(-1.0f, 0.0f, 1.0f), 0.4f, 0.3f);
+		Object* wheel2 = new Object(phongShader, blackRubber, wheel2Obj);
+		objects.push_back(wheel2);
+		carObjects.push_back(wheel2);
+
+		Object3d* wheel3Obj = new Cylinder(carBase + vec3(1.5f, -0.4f, -0.55f), carAxis + vec3(-1.0f, 0.0f, 1.0f), 0.4f, 0.3f);
+		Object* wheel3 = new Object(phongShader, blackRubber, wheel3Obj);
+		objects.push_back(wheel3);
+		carObjects.push_back(wheel3);
+
+		Object3d* wheel4Obj = new Cylinder(carBase + vec3(0.5f, -0.4f, -0.55f), carAxis + vec3(-1.0f, 0.0f, 1.0f), 0.4f, 0.3f);
+		Object* wheel4 = new Object(phongShader, blackRubber, wheel4Obj);
+		objects.push_back(wheel4);
+		carObjects.push_back(wheel4);
 
 		// Camera
 		camera.wEye = camBase;
@@ -846,6 +883,8 @@ public:
 	void MoveCar(const vec3& dir) {
 		if (!carObj) return;
 
+		if (!Start) return;
+
 		if (!isCarOnRoad()) {
 			//carBase = vec3(0.0f, 0.0f, 0.0f);
 			return;
@@ -856,7 +895,7 @@ public:
 
 		if (length(dir) > 1e-4) {
 			vec3 normDir = normalize(dir);
-			vec3 forward = vec3(0.0f, 0.0f, 1.0f);
+			vec3 forward = vec3(-1.0f, 0.0f, 0.0f);
 			angle = acos(dot(forward, normDir));
 			axis = cross(forward, normDir);
 			if (length(axis) < 1e-4) axis = vec3(0.0f, 1.0f, 0.0f);
@@ -883,7 +922,7 @@ public:
 	void setTarget(const vec3& _target) {
 		carTarget = _target;
 	}
-	
+
 	bool isCarOnRoad() {
 		for (Object* roadObj : roadObjects) {
 			const std::vector<VertexData>& verts = roadObj->geoObj->getVertices();
@@ -897,7 +936,6 @@ public:
 			}
 		}
 		return false;
-
 	}
 
 };
@@ -922,6 +960,10 @@ public:
 
 	void onKeyboard(int key) override {
 		printf("Key pressed: %c\n", key);
+		if (key == 'p') {
+			scene.Start = !scene.Start;
+			refreshScreen();
+		}
 	}
 
 	void onMouseMotion(int pX, int pY) override {

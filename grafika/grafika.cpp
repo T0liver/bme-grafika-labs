@@ -533,6 +533,51 @@ public:
 	}
 };
 
+class Sphere : public Object3d {
+public:
+	Sphere(const vec3 _center, const float _radius, const int latitudeSegments = 6, const int longitudeSegments = 6) {
+		std::vector<std::vector<VertexData>> vertexGrid;
+for (int lat = 0; lat <= latitudeSegments; ++lat) {
+			float theta = (float)lat / latitudeSegments * M_PI;
+			float sinTheta = sin(theta);
+			float cosTheta = cos(theta);
+
+			std::vector<VertexData> row;
+			for (int lon = 0; lon <= longitudeSegments; ++lon) {
+				float phi = (float)lon / longitudeSegments * 2.0f * M_PI;
+				float sinPhi = sin(phi);
+				float cosPhi = cos(phi);
+
+				vec3 normal = vec3(cosPhi * sinTheta, sinPhi * sinTheta, cosTheta);
+				vec3 position = _center + _radius * normal;
+				vec2 texcoord = vec2((float)lon / longitudeSegments, 1.0f - (float)lat / latitudeSegments);
+
+				row.push_back({ position, normal, texcoord });
+			}
+			vertexGrid.push_back(row);
+		}
+
+		for (int lat = 0; lat < latitudeSegments; ++lat) {
+			for (int lon = 0; lon < longitudeSegments; ++lon) {
+				const VertexData& v00 = vertexGrid[lat][lon];
+				const VertexData& v01 = vertexGrid[lat][lon + 1];
+				const VertexData& v10 = vertexGrid[lat + 1][lon];
+				const VertexData& v11 = vertexGrid[lat + 1][lon + 1];
+
+				vertices.push_back(v00);
+				vertices.push_back(v10);
+				vertices.push_back(v01);
+
+				vertices.push_back(v01);
+				vertices.push_back(v10);
+				vertices.push_back(v11);
+			}
+		}
+
+		uploadVertexData(vertices);
+	}
+};
+
 
 struct Object {
 	Shader* shader;

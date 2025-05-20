@@ -565,6 +565,7 @@ class Scene {
 
 	vec3 carBase = vec3(0.0f, 0.0f, 0.0f);
 	vec3 camBase = vec3(0.0f, 10.0f, 1.0f);
+	vec3 carTarget = carBase;
 	Object* carObj;
 public:
 	void Build() {
@@ -573,11 +574,8 @@ public:
 
 		// Materials
 		Material* boardMaterial = new Material(vec3(1.0f, 1.0f, 1.0f), vec3(0.0f, 0.0f, 0.0f), vec3(2.0f), 100.0f);
-		Material* goldenThing = new Material(vec3(0.17f, 0.35f, 1.5f), vec3(3.1f, 2.7f, 1.9f), vec3(0.51f, 1.05f, 4.5f), 150.0f);
-		Material* waterThing = new Material(vec3(1.3f, 1.3f, 1.3f), vec3(0.1f, 0.1f, 0.1f), vec3(3.9f, 3.9f, 3.9f), 80.0f);
 		Material* yellowPlastic = new Material(vec3(0.3f, 0.2f, 0.1f), vec3(2.0f, 2.0f, 2.0f), vec3(0.9f, 0.6f, 0.3f), 50.0f);
-		Material* cyanPlastic = new Material(vec3(0.1f, 0.2f, 0.3f), vec3(2.0f, 2.0f, 2.0f), vec3(0.1f, 0.5f, 0.8f), 100.0f);
-		Material* magentaPlastic = new Material(vec3(0.3f, 0.0f, 0.2f), vec3(2.0f, 2.0f, 2.0f), vec3(0.8f, 0.1f, 0.5f), 20.0f);
+		Material* roadMaterial = new Material(vec3(0.2f, 0.2f, 0.2f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f), 20.0f);
 
 		// Textures
 		Texture* boardTexture = new CheckerTexture(20, 20);
@@ -586,6 +584,10 @@ public:
 		Object3d* checkerPlane = new Plane(vec3(0.0f, -0.75f, 0.0f), vec2(20.0f, 20.0f), vec3(0.0f, 1.0f, 0.0f));
 		Object* board = new Object(phongShader, boardMaterial, checkerPlane, boardTexture);
 		objects.push_back(board);
+
+		Object3d* roadPlane1 = new Plane(vec3(20.0f, -1.0f, 20.0f), vec2(40.0f, 5.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road1 = new Object(phongShader, roadMaterial, roadPlane1);
+		objects.push_back(road1);
 
 		Object3d* car = new Cylinder(carBase, vec3(0.0f, 0.0f, 1.0f), 0.5f, 2.0f);
 		carObj = new Object(phongShader, yellowPlastic, car);
@@ -616,6 +618,18 @@ public:
 		state.P = camera.P();
 		state.lights = lights;
 		for (Object* obj : objects) obj->Draw(state);
+
+		vec3 carPos = getCarPosition();
+		vec3 dir = carTarget - carPos;
+
+		if (length(dir) > 1e-4) {
+			float speed = 0.05f;
+			if (length(dir) > speed)
+				dir = normalize(dir) * speed;
+			carTarget += dir;
+			MoveCar(dir);
+		}
+
 	}
 
 	void UploadToGPU() {
@@ -701,6 +715,11 @@ public:
 	mat4 getCameraViewMatrix() { return camera.V(); }
 	mat4 getCameraProjMatrix() { return camera.P(); }
 	vec3 getCarPosition() { return carBase; }
+
+	void setTarget(const vec3& _target) {
+		carTarget = _target;
+	}
+
 };
 
 class Kepszintezis : public glApp {
@@ -755,7 +774,11 @@ public:
 		if (length(dir) > speed)
 			dir = normalize(dir) * speed;
 
-		scene.MoveCar(dir);
+		scene.setTarget(hitPoint);
+	}
+
+	void onTimeElapsed(float startTime, float endTime) override {
+		scene.Render();
 		refreshScreen();
 	}
 

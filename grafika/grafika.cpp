@@ -573,12 +573,6 @@ public:
 			geoObj->Draw();
 		}
 	}
-
-	/** deprecated
-	virtual void Animate(float tstart, float tend) {
-		rotationAngle = 0.8f * tend;
-	}
-	*/
 };
 
 float sign(const vec3 p1, const vec3 p2, const vec3 p3) {
@@ -611,6 +605,7 @@ class Scene {
 	Object* carObj;
 	std::vector<Object3d*> roadPlanes;
 	std::vector<Object*> roadObjects;
+	std::vector<Object*> carObjects;
 public:
 	void Build() {
 		// Shaders
@@ -755,6 +750,7 @@ public:
 		Object3d* car = new Cylinder(carBase, vec3(0.0f, 0.0f, 1.0f), 0.5f, 2.0f);
 		carObj = new Object(phongShader, yellowPlastic, car);
 		objects.push_back(carObj);
+		carObjects.push_back(carObj);
 
 		// Camera
 		camera.wEye = camBase;
@@ -843,12 +839,6 @@ public:
 		glUniform3fv(loc2, trisP3.size(), trisP3flat.data());
 	}
 
-	/** deprecated
-	void Animate(float tstart, float tend) {
-		for (Object3d* obj : objects) obj->Animate(tstart, tend);
-	}
-	*/
-
 	void Spin(const float angle = M_PI_4) {
 		camera.Spin(angle);
 	}
@@ -861,18 +851,24 @@ public:
 			return;
 		}
 
+		vec3 axis = carObj->rotationAxis;
+		float angle = carObj->rotationAngle;
+
 		if (length(dir) > 1e-4) {
 			vec3 normDir = normalize(dir);
 			vec3 forward = vec3(0.0f, 0.0f, 1.0f);
-			float angle = acos(dot(forward, normDir));
-			vec3 axis = cross(forward, normDir);
+			angle = acos(dot(forward, normDir));
+			axis = cross(forward, normDir);
 			if (length(axis) < 1e-4) axis = vec3(0.0f, 1.0f, 0.0f);
-			carObj->rotationAxis = axis;
-			carObj->rotationAngle = angle;
+		}
+		carBase = carBase + dir;
+
+		for (Object* obj : carObjects) {
+			obj->translation = carBase;
+			obj->rotationAxis = axis;
+			obj->rotationAngle = angle;
 		}
 
-		carObj->translation = carObj->translation + dir;
-		carBase = carObj->translation;
 		camera.wLookat = carBase;
 		camera.wEye = carBase + camBase;
 		lights[1].wLightPos = vec4(camBase.x, camBase.y, camBase.z, 1.0f);

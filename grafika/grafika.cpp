@@ -868,7 +868,6 @@ public:
 		vec3 dir = carTarget - carPos;
 
 		if (length(dir) > 1e-4) {
-			float speed = 0.1f;
 			if (length(dir) > speed)
 				dir = normalize(dir) * speed;
 			carTarget += dir;
@@ -932,7 +931,7 @@ public:
 	void MoveCar(const vec3& dir) {
 		if (!carObj) return;
 
-		if (!Start) return;
+		if (!Start || speed == 0.0f) return;
 
 		if (!isCarOnRoad()) {
 			Out = true;
@@ -1011,6 +1010,7 @@ public:
 			obj->rotationAxis = vec3(0.0f, 1.0f, 0.0f);
 			obj->rotationAngle = M_PI_2;
 		}
+		speed = 0.0f;
 
 		camBase = defCamBase;
 		camera.wEye = camBase;
@@ -1018,6 +1018,14 @@ public:
 		lights[1].wLightPos = vec4(camBase.x, camBase.y, camBase.z, 1.0f);
 
 		Out = false;
+	}
+
+	void speedUp() {
+		if (speed < 0.5f) speed += 0.01f;
+	}
+
+	void slowDown() {
+		if (speed > 0.0f) speed -= 0.01f;
 	}
 };
 
@@ -1048,6 +1056,13 @@ public:
 		else if (key == 'r') {
 			scene.ResetCar();
 			refreshScreen();
+		}
+		else if (key == 'w')
+		{
+			scene.speedUp();
+		}
+		else if (key == 's') {
+			scene.slowDown();
 		}
 	}
 

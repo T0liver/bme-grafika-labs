@@ -1,3 +1,4 @@
+#include <random>
 #include "framework.h"
 
 #define DEBUG true
@@ -84,8 +85,6 @@ public:
 	}
 };
 
-#include <random>
-
 class AsphaltTexture : public Texture {
 public:
 	AsphaltTexture(const int _width, const int _height) : Texture(_width, _height)
@@ -103,6 +102,31 @@ public:
 				vec3 noisyColor = baseColor + vec3(noise);
 				noisyColor = clamp(noisyColor, vec3(0.0f), vec3(1.0f));
 				img[y * _width + x] = noisyColor;
+			}
+		}
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, _width, _height, 0, GL_RGB, GL_FLOAT, &img[0]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	}
+};
+
+class DryGrassTexture : public Texture {
+public:
+	DryGrassTexture(const int _width, const int _height) : Texture(_width, _height)
+	{
+		std::vector<vec3> img(_width * _height);
+		for (int y = 0; y < _height; ++y) {
+			for (int x = 0; x < _width; ++x) {
+				float noise = (rand() % 1000) / 1000.0f;
+				noise = powf(noise, 2.0f);
+
+				vec3 baseColor(0.5f, 0.5f, 0.2f);
+				vec3 dryPatch(0.6f, 0.4f, 0.1f);
+
+				vec3 finalColor = baseColor * (1.0f - noise) + dryPatch * noise;
+
+				img[y * _width + x] = finalColor;
 			}
 		}
 
@@ -693,12 +717,20 @@ public:
 		Material* boardMaterial = new Material(vec3(1.0f, 1.0f, 1.0f), vec3(0.0f, 0.0f, 0.0f), vec3(2.0f), 100.0f);
 		Material* yellowPlastic = new Material(vec3(0.3f, 0.2f, 0.1f), vec3(2.0f, 2.0f, 2.0f), vec3(0.9f, 0.6f, 0.3f), 50.0f);
 		Material* roadMaterial = new Material(vec3(0.2f, 0.2f, 0.2f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f), 5.0f);
+		Material* blackRubber = new Material(vec3(0.02f), vec3(0.5f), vec3(0.1f), 10.0f);
+		Material* carBodyMat = new Material(vec3(0.1f, 0.0f, 0.0f), vec3(1.0f), vec3(0.8f, 0.0f, 0.0f), 100.0f);
+		Material* carPitMat = new Material(vec3(0.4f, 0.4f, 1.2f), vec3(0.8f), vec3(0.5f, 0.5f, 0.9f), 120.0f);
+		Material* grassMat = new Material(vec3(0.6f, 1.0f, 0.2f), vec3(0.05f, 0.05f, 0.05f), vec3(0.2f, 0.2f, 0.1f), 2.0f);
 
 		// Textures
 		Texture* boardTexture = new CheckerTexture(3, 3, vec3(0.0f, 0.0f, 0.0f), vec3(0.9f, 0.9f, 0.9f));
 		Texture* asphaltTexture = new AsphaltTexture(200, 200);
+		Texture* dryGrassTexture = new DryGrassTexture(200, 200);
 
 		// Create objects by setting up their vertex data on the GPU
+		// ----------
+		// Road
+		// ----------
 		Object3d* checkerPlane = new Plane(vec3(0.0f, -0.99f, 0.0f), vec2(7.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
 		Object* board = new Object(phongShader, boardMaterial, checkerPlane, boardTexture);
 		objects.push_back(board);
@@ -804,10 +836,16 @@ public:
 		objects.push_back(road20);
 		roadObjects.push_back(road20);
 
-		Material* blackRubber = new Material(vec3(0.02f), vec3(0.5f), vec3(0.1f), 10.0f);
-		Material* carBodyMat = new Material(vec3(0.1f, 0.0f, 0.0f), vec3(1.0f), vec3(0.8f, 0.0f, 0.0f), 100.0f);
-		Material* carPitMat = new Material(vec3(0.4f, 0.4f, 1.2f), vec3(0.8f), vec3(0.5f, 0.5f, 0.9f), 120.0f);
+		// ----------
+		// Grass
+		// ----------
+		Object3d* grassPlane = new Plane(vec3(10.0f, -1.01f, 10.0f), vec2(7.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* grass = new Object(phongShader, grassMat, grassPlane, dryGrassTexture);
+		objects.push_back(grass);
 
+		// ----------
+		// Car
+		// ----------
 		Object3d* carBodyObj = new Cylinder(carBase, carAxis, 0.5f, 2.0f);
 		carObj = new Object(phongShader, carBodyMat, carBodyObj);
 		objects.push_back(carObj);

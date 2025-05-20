@@ -935,6 +935,7 @@ public:
 
 		if (!isCarOnRoad()) {
 			Out = true;
+			printf("Car is out of the road!\n");
 			return;
 		}
 
@@ -1018,6 +1019,8 @@ public:
 		lights[1].wLightPos = vec4(camBase.x, camBase.y, camBase.z, 1.0f);
 
 		Out = false;
+
+		printf("Car is resetted!\n");
 	}
 
 	void speedUp() {

@@ -625,7 +625,7 @@ public:
 float sign(const vec3 p1, const vec3 p2, const vec3 p3) {
 	return (p1.x - p3.x) * (p2.z - p3.z) - (p2.x - p3.x) * (p1.z - p3.z);
 }
-
+/*
 bool isPointInTriangle(const vec3 p, const vec3 t1, const vec3 t2, const vec3 t3) {
 	float d1, d2, d3;
 	bool has_neg, has_pos;
@@ -639,8 +639,35 @@ bool isPointInTriangle(const vec3 p, const vec3 t1, const vec3 t2, const vec3 t3
 
 	return !(has_neg && has_pos);
 }
+*/
 
-const vec3 defCamBase = vec3(0.0f, 40.0f, 1.0f);
+bool isPointInTriangle(const vec3& p, const vec3& t1, const vec3& t2, const vec3& t3) {
+	float d1, d2, d3;
+	bool has_neg, has_pos;
+
+	d1 = sign(p, t1, t2);
+	d2 = sign(p, t2, t3);
+	d3 = sign(p, t3, t1);
+
+	has_neg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+	has_pos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+
+	if (!(has_neg && has_pos)) return true;
+
+	float maxDist = 0.0f;
+	vec3 centroid = (t1 + t2 + t3) / 3.0f;
+	maxDist = max(maxDist, distance(t1, centroid));
+	maxDist = max(maxDist, distance(t2, centroid));
+	maxDist = max(maxDist, distance(t3, centroid));
+	float margin = maxDist * 0.05f;
+	float distToEdge = min(min(
+		fabs(d1) / length(vec2(t2.z - t1.z, t1.x - t2.x)),
+		fabs(d2) / length(vec2(t3.z - t2.z, t2.x - t3.x))),
+		fabs(d3) / length(vec2(t1.z - t3.z, t3.x - t1.x)));
+	return distToEdge <= margin;
+}
+
+const vec3 defCamBase = vec3(-10.0f, 10.0f, 0.0f);
 
 class Scene {
 	std::vector<Object*> objects;
@@ -942,16 +969,16 @@ public:
 			return;
 		}
 
-		vec3 axis = carObj->rotationAxis;
-		float angle = carObj->rotationAngle;
-
 		if (length(dir) > 1e-4) {
-			vec3 normDir = normalize(dir);
-			vec3 forward = vec3(0.0f, 0.0f, 1.0f);
-			angle = acos(dot(forward, normDir));
-			axis = cross(forward, normDir);
-			if (length(axis) < 1e-4) axis = vec3(0.0f, 1.0f, 0.0f);
+			vec3 newDir = normalize(dir);
+			carAxis = normalize(mix(carAxis, newDir, 0.2f));
 		}
+
+		vec3 forward = vec3(0.0f, 0.0f, 1.0f);
+		float angle = acos(clamp(dot(forward, carAxis), -1.0f, 1.0f));
+		vec3 axis = cross(forward, carAxis);
+		if (length(axis) < 1e-4) axis = vec3(0.0f, 1.0f, 0.0f);
+
 		carBase = carBase + dir;
 		carBase *= vec3(1.0f, 0.0f, 1.0f);
 
@@ -961,8 +988,17 @@ public:
 			obj->rotationAngle = angle;
 		}
 
-		camera.wLookat = carBase;
-		camera.wEye = carBase + camBase;
+		float camAngle = atan2(carAxis.x, carAxis.z);
+		vec3 rotatedCamBase = vec3(
+			camBase.x * sin(camAngle) + camBase.z * cos(camAngle),
+			camBase.y,
+			camBase.x * cos(camAngle) - camBase.z * sin(camAngle)
+		);
+
+		vec3 desiredCamEye = carBase + rotatedCamBase;
+		camera.wEye = mix(camera.wEye, desiredCamEye, 0.1f);
+		camera.wLookat = mix(camera.wLookat, carBase, 0.1f);
+
 		lights[1].wLightPos = vec4(camBase.x, camBase.y, camBase.z, 1.0f);
 
 		UploadToGPU();
@@ -975,6 +1011,9 @@ public:
 	void setTarget(const vec3& _target) {
 		carTarget = _target;
 	}
+
+	vec3 getCarAxis() { return carAxis; }
+	vec3 getCarBase() { return carBase; }
 
 	bool isCarOnRoad() {
 		for (Object* roadObj : roadObjects) {
@@ -995,12 +1034,12 @@ public:
 
 		carBase = vec3(0.0f, 0.0f, 0.0f);
 		carTarget = carBase;
-		carAxis = vec3(1.0f, 0.0f, 0.0f);
+		carAxis = vec3(0.0f, 0.0f, -1.0f);
 
 		for (Object* obj : carObjects) {
 			obj->translation = carBase;
-			obj->rotationAxis = carAxis;
-			obj->rotationAngle = 0.0f;
+			obj->rotationAxis = vec3(0.0f, 1.0f, 0.0f);
+			obj->rotationAngle = M_PI_2;
 		}
 
 		camBase = defCamBase;
@@ -1044,6 +1083,7 @@ public:
 	}
 
 	void onMouseMotion(int pX, int pY) override {
+		
 		float ndcX = 2.0f * pX / windowWidth - 1.0f;
 		float ndcY = 1.0f - 2.0f * pY / windowHeight;
 
@@ -1066,14 +1106,8 @@ public:
 
 		vec3 hitPoint = rayOrigin + t * rayDir;
 
-		vec3 carPos = scene.getCarPosition();
-		vec3 dir = hitPoint - carPos;
-
-		float speed = 0.1f;
-		if (length(dir) > speed)
-			dir = normalize(dir) * speed;
-
-		scene.setTarget(hitPoint);
+		scene.setTarget(hitPoint * vec3(1.0f, 0.0f, 1.0f));
+		
 	}
 
 	void onTimeElapsed(float startTime, float endTime) override {

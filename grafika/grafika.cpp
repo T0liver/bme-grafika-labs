@@ -641,17 +641,11 @@ bool isPointInTriangle(const vec3& p, const vec3& t1, const vec3& t2, const vec3
 
 	if (!(has_neg && has_pos)) return true;
 
-	float maxDist = 0.0f;
-	vec3 centroid = (t1 + t2 + t3) / 3.0f;
-	maxDist = max(maxDist, distance(t1, centroid));
-	maxDist = max(maxDist, distance(t2, centroid));
-	maxDist = max(maxDist, distance(t3, centroid));
-	float margin = maxDist * 0.05f;
 	float distToEdge = min(min(
 		fabs(d1) / length(vec2(t2.z - t1.z, t1.x - t2.x)),
 		fabs(d2) / length(vec2(t3.z - t2.z, t2.x - t3.x))),
 		fabs(d3) / length(vec2(t1.z - t3.z, t3.x - t1.x)));
-	return distToEdge <= margin;
+	return distToEdge <= 2.0f;
 }
 
 const vec3 defCamBase = vec3(-10.0f, 10.0f, 0.0f);

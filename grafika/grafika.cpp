@@ -1032,10 +1032,10 @@ public:
 	}
 };
 
-class Kepszintezis : public glApp {
+class AutodromoDeMaputo : public glApp {
 	Scene scene;
 public:
-	Kepszintezis() : glApp(3, 3, windowWidth, windowHeight, "Kepszintezis") {}
+	AutodromoDeMaputo() : glApp(3, 3, windowWidth, windowHeight, "Mazambique, Autodromo Internacional de Maputo") {}
 
 	void onInitialization() {
 		glViewport(0, 0, windowWidth, windowHeight);
@@ -1104,4 +1104,4 @@ public:
 
 };
 
-Kepszintezis app;
+AutodromoDeMaputo app;

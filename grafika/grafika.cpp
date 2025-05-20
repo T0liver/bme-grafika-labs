@@ -564,7 +564,7 @@ class Scene {
 	Camera camera;
 
 	vec3 carBase = vec3(0.0f, 0.0f, 0.0f);
-	vec3 camBase = vec3(0.0f, 10.0f, 1.0f);
+	vec3 camBase = vec3(0.0f, 40.0f, 1.0f);
 	vec3 carTarget = carBase;
 	Object* carObj;
 public:
@@ -575,7 +575,7 @@ public:
 		// Materials
 		Material* boardMaterial = new Material(vec3(1.0f, 1.0f, 1.0f), vec3(0.0f, 0.0f, 0.0f), vec3(2.0f), 100.0f);
 		Material* yellowPlastic = new Material(vec3(0.3f, 0.2f, 0.1f), vec3(2.0f, 2.0f, 2.0f), vec3(0.9f, 0.6f, 0.3f), 50.0f);
-		Material* roadMaterial = new Material(vec3(0.2f, 0.2f, 0.2f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f), 20.0f);
+		Material* roadMaterial = new Material(vec3(0.2f, 0.2f, 0.2f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f), 5.0f);
 
 		// Textures
 		Texture* boardTexture = new CheckerTexture(20, 20);
@@ -585,9 +585,13 @@ public:
 		Object* board = new Object(phongShader, boardMaterial, checkerPlane, boardTexture);
 		objects.push_back(board);
 
-		Object3d* roadPlane1 = new Plane(vec3(20.0f, -1.0f, 20.0f), vec2(40.0f, 5.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object3d* roadPlane1 = new Plane(vec3(50.0f, -1.0f, 0.0f), vec2(100.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
 		Object* road1 = new Object(phongShader, roadMaterial, roadPlane1);
 		objects.push_back(road1);
+
+		Object3d* roadPlane2 = new Plane(vec3(100.0f, -1.0f, 5.0f), vec2(20.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object* road2 = new Object(phongShader, roadMaterial, roadPlane2);
+		objects.push_back(road2);
 
 		Object3d* car = new Cylinder(carBase, vec3(0.0f, 0.0f, 1.0f), 0.5f, 2.0f);
 		carObj = new Object(phongShader, yellowPlastic, car);
@@ -623,7 +627,7 @@ public:
 		vec3 dir = carTarget - carPos;
 
 		if (length(dir) > 1e-4) {
-			float speed = 0.05f;
+			float speed = 0.2f;
 			if (length(dir) > speed)
 				dir = normalize(dir) * speed;
 			carTarget += dir;

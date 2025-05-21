@@ -1127,6 +1127,20 @@ public:
 		if (speed > 0.0f) speed -= 0.01f;
 		if (DEBUG) printf("Slow donw! Actual speed: %f\n", speed);
 	}
+
+	void camUp() {
+		camBase.y += 1.0f;
+		camera.wEye = camBase;
+		camera.wLookat = carBase;
+		lights[1].wLightPos = vec4(camBase.x, camBase.y, camBase.z, 1.0f);
+	}
+
+	void camDown() {
+		camBase.y -= 1.0f;
+		camera.wEye = camBase;
+		camera.wLookat = carBase;
+		lights[1].wLightPos = vec4(camBase.x, camBase.y, camBase.z, 1.0f);
+	}
 };
 
 class AutodromoDeMaputo : public glApp {
@@ -1163,6 +1177,13 @@ public:
 		}
 		else if (key == 's') {
 			scene.slowDown();
+		}
+		else if (key == 't')
+		{
+			scene.camUp();
+		}
+		else if (key == 'g') {
+			scene.camDown();
 		}
 	}
 

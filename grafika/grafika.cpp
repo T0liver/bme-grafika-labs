@@ -111,6 +111,49 @@ public:
 	}
 };
 
+class LowAsphaltTexture : public Texture {
+public:
+	LowAsphaltTexture(const int _width, const int _height) : Texture(_width, _height)
+	{
+		std::vector<vec3> img(_width * _height);
+		vec3 asphaltColor(0.2f, 0.2f, 0.2f);
+
+		for (int y = 0; y < _height; ++y) {
+			for (int x = 0; x < _width; ++x) {
+				img[y * _width + x] = asphaltColor;
+			}
+		}
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, _width, _height, 0, GL_RGB, GL_FLOAT, &img[0]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	}
+};
+
+class LowAsphaltWithLineTexture : public Texture {
+public:
+	LowAsphaltWithLineTexture(const int _width, const int _height) : Texture(_width, _height)
+	{
+		std::vector<vec3> img(_width * _height);
+		vec3 asphaltColor(0.2f, 0.2f, 0.2f);
+		vec3 lineColor(1.0f, 1.0f, 0.0f);
+
+		int lineWidth = _width / 20;
+		int centerX = _width / 2;
+
+		for (int y = 0; y < _height; ++y) {
+			for (int x = 0; x < _width; ++x) {
+				bool isLine = abs(x - centerX) < lineWidth / 2 && (y / 20) % 2 == 0;
+				img[y * _width + x] = isLine ? lineColor : asphaltColor;
+			}
+		}
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, _width, _height, 0, GL_RGB, GL_FLOAT, &img[0]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	}
+};
+
 class DryGrassTexture : public Texture {
 public:
 	DryGrassTexture(const int _width, const int _height) : Texture(_width, _height)
@@ -132,10 +175,9 @@ public:
 
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, _width, _height, 0, GL_RGB, GL_FLOAT, &img[0]);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
 };
-
 
 struct RenderState {
 	mat4 MVP, M, Minv, V, P;
@@ -724,8 +766,8 @@ public:
 
 		// Textures
 		Texture* boardTexture = new CheckerTexture(3, 3, vec3(0.0f, 0.0f, 0.0f), vec3(0.9f, 0.9f, 0.9f));
-		Texture* asphaltTexture = new AsphaltTexture(200, 200);
-		Texture* dryGrassTexture = new DryGrassTexture(200, 200);
+		Texture* asphaltTexture = new LowAsphaltTexture(200, 200);
+		Texture* dryGrassTexture = new DryGrassTexture(1200, 600);
 
 		// Create objects by setting up their vertex data on the GPU
 		// ----------
@@ -839,9 +881,9 @@ public:
 		// ----------
 		// Grass
 		// ----------
-		Object3d* grassPlane = new Plane(vec3(10.0f, -1.01f, 10.0f), vec2(7.0f, 7.0f), vec3(0.0f, 1.0f, 0.0f));
+		Object3d* grassPlane = new Plane(vec3(-5.0f, -1.01f, 35.0f), vec2(300.0f, 150.0f), vec3(0.0f, 1.0f, 0.0f));
 		Object* grass = new Object(phongShader, grassMat, grassPlane, dryGrassTexture);
-		objects.push_back(grass);
+		//objects.push_back(grass);
 
 		// ----------
 		// Car
@@ -894,10 +936,10 @@ public:
 
 		// Lights
 		lights.resize(2);
-		lights[0].wLightPos = vec4(1.0f, 1.0f, 1.0f, 0.0f);
+		lights[0].wLightPos = vec4(130.0f, 100.0f, 100.0f, 0.0f);
 		lights[0].La = vec3(0.2f, 0.2f, 0.2f);
 		lights[0].Le = vec3(1.0f, 1.0f, 1.0f);
-		lights[1].wLightPos = vec4(camBase.x, camBase.y, camBase.z, 1.0f);
+		lights[1].wLightPos = vec4(camBase.x, camBase.y, camBase.z, 0.5f);
 		lights[1].La = vec3(0.2f, 0.2f, 0.2f);
 		lights[1].Le = vec3(1.0f, 1.0f, 1.0f);
 

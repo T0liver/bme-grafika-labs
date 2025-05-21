@@ -724,10 +724,10 @@ bool isPointInTriangle(const vec3& p, const vec3& t1, const vec3& t2, const vec3
 	if (!(has_neg && has_pos)) return true;
 
 	float distToEdge = min(min(
-		fabs(d1) / length(vec2(t2.z - t1.z, t1.x - t2.x)),
-		fabs(d2) / length(vec2(t3.z - t2.z, t2.x - t3.x))),
-		fabs(d3) / length(vec2(t1.z - t3.z, t3.x - t1.x)));
-	return distToEdge <= 1.5f;
+		abs(d1) / length(vec2(t2.z - t1.z, t1.x - t2.x)),
+		abs(d2) / length(vec2(t3.z - t2.z, t2.x - t3.x))),
+		abs(d3) / length(vec2(t1.z - t3.z, t3.x - t1.x)));
+	return distToEdge <= 1.0f;
 }
 
 const vec3 defCamBase = vec3(-10.0f, 10.0f, 0.0f);
@@ -758,7 +758,7 @@ public:
 		// Materials
 		Material* boardMaterial = new Material(vec3(1.0f, 1.0f, 1.0f), vec3(0.0f, 0.0f, 0.0f), vec3(2.0f), 100.0f);
 		Material* yellowPlastic = new Material(vec3(0.3f, 0.2f, 0.1f), vec3(2.0f, 2.0f, 2.0f), vec3(0.9f, 0.6f, 0.3f), 50.0f);
-		Material* roadMaterial = new Material(vec3(0.2f, 0.2f, 0.2f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f), 5.0f);
+		Material* roadMaterial = new Material(vec3(0.2f, 0.2f, 0.2f), vec3(0.0f, 0.0f, 0.0f), vec3(1.0f), 10.0f);
 		Material* blackRubber = new Material(vec3(0.02f), vec3(0.5f), vec3(0.1f), 10.0f);
 		Material* carBodyMat = new Material(vec3(0.1f, 0.0f, 0.0f), vec3(1.0f), vec3(0.8f, 0.0f, 0.0f), 100.0f);
 		Material* carPitMat = new Material(vec3(0.4f, 0.4f, 1.2f), vec3(0.8f), vec3(0.5f, 0.5f, 0.9f), 120.0f);
@@ -766,7 +766,7 @@ public:
 
 		// Textures
 		Texture* boardTexture = new CheckerTexture(3, 3, vec3(0.0f, 0.0f, 0.0f), vec3(0.9f, 0.9f, 0.9f));
-		Texture* asphaltTexture = new LowAsphaltTexture(200, 200);
+		Texture* asphaltTexture = new AsphaltTexture(200, 200);
 		Texture* dryGrassTexture = new DryGrassTexture(1200, 600);
 
 		// Create objects by setting up their vertex data on the GPU
@@ -883,7 +883,7 @@ public:
 		// ----------
 		Object3d* grassPlane = new Plane(vec3(-5.0f, -1.01f, 35.0f), vec2(300.0f, 150.0f), vec3(0.0f, 1.0f, 0.0f));
 		Object* grass = new Object(phongShader, grassMat, grassPlane, dryGrassTexture);
-		//objects.push_back(grass);
+		objects.push_back(grass);
 
 		// ----------
 		// Car
@@ -1028,7 +1028,7 @@ public:
 
 		if (!Start || speed == 0.0f) return;
 
-		if (!isCarOnRoad()/* && !ROAD_DEBUG*/) {
+		if (!isCarOnRoad()) {
 			Out = true;
 			if (DEBUG) printf("Car is out of the road:\t%f, %f, %f\n", carBase.x, carBase.y, carBase.z);
 			return;

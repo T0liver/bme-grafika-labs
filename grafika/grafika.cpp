@@ -2,7 +2,7 @@
 #include "framework.h"
 
 #define DEBUG true
-#define ROAD_DEBUG true
+#define ROAD_DEBUG false
 
 const int windowWidth = 1200, windowHeight = 600;
 
@@ -1028,7 +1028,7 @@ public:
 
 		if (!Start || speed == 0.0f) return;
 
-		if (!isCarOnRoad() && !ROAD_DEBUG) {
+		if (!isCarOnRoad()/* && !ROAD_DEBUG*/) {
 			Out = true;
 			if (DEBUG) printf("Car is out of the road:\t%f, %f, %f\n", carBase.x, carBase.y, carBase.z);
 			return;

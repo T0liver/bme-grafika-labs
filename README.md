@@ -1,12 +1,13 @@
-# Grafika template
-Saját grafika laborokhoz, házikhoz készült Visual Studio template-m.
+# Raytracing
+CPU sugárkövető program dülöngélő hengerekre meg kúpokra
 
-Használata:
+## Leírás
+A feladat a sugárkövetés algoritmusának implementálása dülöngélő kúp és henger felületekre. A virtuális világunkban a „függőlegesen felfelé” az y tengely, az egység a méter. A világban hat objektum található:
+- Kék-fehér sakktábla mintázatú, origó középpontú, 20x20 méteres diffúz négyzet.
+- Egy optikailag sima, tükröző arany henger.
+- Egy optikailag sima, tükröző, fénytörő és átlátszó víz henger.
+- Egy sárga műanyag diffúz-spekuláris henger.
+- Egy cián diffúz-spekuláris kúp.
+- Egy magenta diffúz-spekuláris kúp.
 
-0. Repo klónozása
-1. Új branch létrehozása ez a branch alapján
-2. A *grafika* projekt átnevezése az azott projektnek (labornak, házinak...) megfelelően
-3. Push-ok az új brach-be mennek
-4. Az új branch-et lehet majd PR-al mergel-ni a main-be, hogy egy helyen legyen minden, de azért a feature branch szerűséget mégis megtartsuk.
-
-**Jó szórakozást a tárgyhoz!**
+Kameramozgatás az ``A`` billentyűvel.

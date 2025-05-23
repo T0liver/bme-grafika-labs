@@ -23,11 +23,11 @@ Jelenleg ezt tudom elképzelni:
 
 ### Házi 1 - Pontok és egyenesek
 
-![hazi1](https://raw.githubusercontent.com/T0liver/bme-grafika-labs/refs/heads/hazi1/sources/hazi1-result.png)
+![hazi1](https://raw.githubusercontent.com/T0liver/bme-grafika-labs/refs/heads/hazi1/hazi1/sources/hazi1-result.png)
 
 ### Házi 2 - Hullámvasút
 
-![hazi2](https://raw.githubusercontent.com/T0liver/bme-grafika-labs/refs/heads/hazi2/sources/hazi2-result.png)
+![hazi2](https://raw.githubusercontent.com/T0liver/bme-grafika-labs/refs/heads/hazi2/hazi2/sources/hazi2-result.png)
 
 ### Házi 3 - Mercator útvonaltervező
 
@@ -39,5 +39,5 @@ Jelenleg ezt tudom elképzelni:
 
 ### Házi 5 - Inkrementális képszínezés
 
-![hazi5](https://raw.githubusercontent.com/T0liver/bme-grafika-labs/refs/heads/hazi5/sources/hazi5-result.png)
+![hazi5](https://raw.githubusercontent.com/T0liver/bme-grafika-labs/refs/heads/hazi5-4dikproba/sources/hazi5-result.png)
 

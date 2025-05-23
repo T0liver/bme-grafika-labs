@@ -1,12 +1,9 @@
-# Grafika template
-Saját grafika laborokhoz, házikhoz készült Visual Studio template-m.
+# Pontok és egyenesek
+Egyenesek illesztése pontokra, egyenesek metszése.
 
-Használata:
+## Leírás
+Az első feladat célja az alapvető koordinátageometriai ismeretek felelevenítése és az OpenGL-lel való ismerkedés. Az elkészítendő programmal ízlésesen megválasztott szürke háttéren egérkattintásokkal pontokat vehetünk fel, a pontokra egyeneseket illeszthetünk, az egyeneseket tologathatjuk, és végül a kiválasztott egyenesek metszéspontjaiból újabb pontok hozhatók létre.
 
-0. Repo klónozása
-1. Új branch létrehozása ez a branch alapján
-2. A *grafika* projekt átnevezése az azott projektnek (labornak, házinak...) megfelelően
-3. Push-ok az új brach-be mennek
-4. Az új branch-et lehet majd PR-al mergel-ni a main-be, hogy egy helyen legyen minden, de azért a feature branch szerűséget mégis megtartsuk.
+## Jporta által elfogadott kép
 
-**Jó szórakozást a tárgyhoz!**
+![hazi1](sources/hazi1-result.png)

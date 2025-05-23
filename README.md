@@ -23,7 +23,6 @@ Ha az autó lehajt a pályáról, akkor megakad a fűben, de nem rögtön, hanem
 
 ![indításkor a program](sources/indulas.png)
 
-
 ### Kifutás a szélére
 
 ![kifutás](sources/kifutas.png)

@@ -11,3 +11,7 @@ A feladat a sugárkövetés algoritmusának implementálása dülöngélő kúp 
 - Egy magenta diffúz-spekuláris kúp.
 
 Kameramozgatás az ``A`` billentyűvel.
+
+## JPorta által elfogadott kép
+
+![hazi4](sources/hazi4-result.png)

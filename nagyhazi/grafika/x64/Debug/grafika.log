@@ -1,0 +1,38 @@
+﻿  grafika.cpp
+M:\Programs\grafika\grafika\sources\framework.h(282,22): warning C4018: '<': signed/unsigned mismatch
+  (compiling source file 'grafika.cpp')
+  
+M:\Programs\grafika\grafika\sources\framework.h(283,23): warning C4018: '<': signed/unsigned mismatch
+  (compiling source file 'grafika.cpp')
+  
+M:\Programs\grafika\grafika\sources\framework.h(288,44): warning C4244: '=': conversion from 'float' to 'unsigned char', possible loss of data
+  (compiling source file 'grafika.cpp')
+  
+M:\Programs\grafika\grafika\grafika\grafika.cpp(387,30): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
+M:\Programs\grafika\grafika\grafika\grafika.cpp(459,39): warning C4305: 'initializing': truncation from 'double' to 'float'
+M:\Programs\grafika\grafika\grafika\grafika.cpp(527,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+M:\Programs\grafika\grafika\grafika\grafika.cpp(528,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+M:\Programs\grafika\grafika\grafika\grafika.cpp(564,39): warning C4305: 'initializing': truncation from 'double' to 'float'
+M:\Programs\grafika\grafika\grafika\grafika.cpp(625,16): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+M:\Programs\grafika\grafika\grafika\grafika.cpp(631,15): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+M:\Programs\grafika\grafika\grafika\grafika.cpp(781,106): warning C4305: 'argument': truncation from 'double' to 'const float'
+M:\Programs\grafika\grafika\grafika\grafika.cpp(786,106): warning C4305: 'argument': truncation from 'double' to 'const float'
+M:\Programs\grafika\grafika\grafika\grafika.cpp(801,106): warning C4305: 'argument': truncation from 'double' to 'const float'
+M:\Programs\grafika\grafika\grafika\grafika.cpp(806,107): warning C4305: 'argument': truncation from 'double' to 'const float'
+M:\Programs\grafika\grafika\grafika\grafika.cpp(811,107): warning C4305: 'argument': truncation from 'double' to 'const float'
+M:\Programs\grafika\grafika\grafika\grafika.cpp(816,106): warning C4305: 'argument': truncation from 'double' to 'const float'
+M:\Programs\grafika\grafika\grafika\grafika.cpp(821,105): warning C4305: 'argument': truncation from 'double' to 'const float'
+M:\Programs\grafika\grafika\grafika\grafika.cpp(826,108): warning C4305: 'argument': truncation from 'double' to 'const float'
+M:\Programs\grafika\grafika\grafika\grafika.cpp(831,108): warning C4305: 'argument': truncation from 'double' to 'const float'
+M:\Programs\grafika\grafika\grafika\grafika.cpp(841,108): warning C4305: 'argument': truncation from 'double' to 'const float'
+M:\Programs\grafika\grafika\grafika\grafika.cpp(846,108): warning C4305: 'argument': truncation from 'double' to 'const float'
+M:\Programs\grafika\grafika\grafika\grafika.cpp(851,109): warning C4305: 'argument': truncation from 'double' to 'const float'
+M:\Programs\grafika\grafika\grafika\grafika.cpp(856,109): warning C4305: 'argument': truncation from 'double' to 'const float'
+M:\Programs\grafika\grafika\grafika\grafika.cpp(871,109): warning C4305: 'argument': truncation from 'double' to 'const float'
+M:\Programs\grafika\grafika\grafika\grafika.cpp(876,108): warning C4305: 'argument': truncation from 'double' to 'const float'
+M:\Programs\grafika\grafika\grafika\grafika.cpp(929,25): warning C4305: '=': truncation from 'double' to 'float'
+M:\Programs\grafika\grafika\grafika\grafika.cpp(1017,33): warning C4267: 'argument': conversion from 'size_t' to 'GLsizei', possible loss of data
+M:\Programs\grafika\grafika\grafika\grafika.cpp(1018,33): warning C4267: 'argument': conversion from 'size_t' to 'GLsizei', possible loss of data
+M:\Programs\grafika\grafika\grafika\grafika.cpp(1019,33): warning C4267: 'argument': conversion from 'size_t' to 'GLsizei', possible loss of data
+M:\Programs\grafika\grafika\grafika\grafika.cpp(1107,25): warning C4305: '=': truncation from 'double' to 'float'
+  grafika.vcxproj -> M:\Programs\grafika\grafika\x64\Debug\grafika.exe
